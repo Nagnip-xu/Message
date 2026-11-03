@@ -1,0 +1,23 @@
+[Unit]
+Description=Message Telegram to Feishu relay
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=message-relay
+Group=message-relay
+WorkingDirectory=/opt/Message
+Environment=RELAY_DATA_DIR=/var/lib/message-relay
+Environment=PYTHONUNBUFFERED=1
+StateDirectory=message-relay
+StateDirectoryMode=0700
+UMask=0077
+ExecStart=/opt/Message/.venv/bin/python /opt/Message/run_server.py
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

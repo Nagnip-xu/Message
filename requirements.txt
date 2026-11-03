@@ -1,0 +1,8 @@
+fastapi>=0.115,<1
+uvicorn>=0.34,<1
+telethon==1.45.0
+httpx>=0.28,<1
+python-socks[asyncio]>=2.7,<3
+pydantic>=2.10,<3
+pytest>=8,<10
+tzdata>=2025.2

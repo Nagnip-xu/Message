@@ -1,0 +1,36 @@
+import { chromium, expect } from '@playwright/test';
+import fs from 'node:fs';
+fs.mkdirSync('../artifacts/screenshots', { recursive: true });
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
+const errors = [];
+page.on('pageerror', error => errors.push(error.message));
+try {
+  await page.goto('http://127.0.0.1:8765');
+  await page.getByRole('heading', { name: '监听工作台', exact: true }).waitFor();
+  await page.screenshot({ path: '../artifacts/screenshots/desktop.png', fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: 'Telegram 账号', exact: true }).click();
+  await page.getByRole('heading', { name: 'Telegram 账号', exact: true }).waitFor();
+  await page.screenshot({ path: '../artifacts/screenshots/telegram.png', fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: '飞书机器人', exact: true }).click();
+  await page.getByRole('button', { name: '添加机器人', exact: true }).first().click();
+  await page.getByRole('dialog').waitFor();
+  await page.screenshot({ path: '../artifacts/screenshots/robot-drawer.png', fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: '关闭面板' }).click();
+  await page.getByRole('button', { name: '运行设置', exact: true }).click();
+  await page.getByRole('heading', { name: '运行设置', exact: true }).waitFor();
+  await page.screenshot({ path: '../artifacts/screenshots/settings.png', fullPage: true, animations: 'disabled' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: '打开导航' }).click();
+  await page.screenshot({ path: '../artifacts/screenshots/mobile-navigation.png', fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: '监听工作台', exact: true }).click();
+  await expect(page.locator('.mobile-scrim')).toHaveCount(0);
+  await page.screenshot({ path: '../artifacts/screenshots/mobile.png', fullPage: true, animations: 'disabled' });
+  await page.route('**/api/state', route => route.abort());
+  await expect(page.locator('.local-address')).toContainText('服务已断开', { timeout: 8000 });
+  await page.screenshot({ path: '../artifacts/screenshots/disconnected.png', fullPage: true, animations: 'disabled' });
+  await page.unroute('**/api/state');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+  expect(errors).toEqual([]);
+  console.log(JSON.stringify({ result: 'PASS', captures: ['desktop', 'telegram', 'robot-drawer', 'settings', 'mobile'], pageErrors: errors }));
+} finally { await browser.close(); }
