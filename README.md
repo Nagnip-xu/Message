@@ -254,6 +254,10 @@ test -f /opt/Message/frontend/dist/index.html
 
 服务器已安装兼容的 Node.js 时，也可以在 `/opt/Message/frontend` 运行 `npm ci` 和 `npm run build`，省略本机打包上传步骤。
 
+**Alibaba Cloud Linux 3**：将上面的 `apt` 安装命令替换为 `sudo dnf install -y python3.11 python3.11-pip git ca-certificates tar`。系统自带的 Python 可能是 3.6，不满足本项目要求；克隆仓库后，使用 `sudo python3.11 -m venv /opt/Message/.venv` 创建虚拟环境。后续依赖安装、静态页面上传和 systemd 配置步骤相同，无需替换系统 Python。本项目已在 Alibaba Cloud Linux 3 + Python 3.11 环境验证。
+
+中国内地地域的服务器可能无法直连 Telegram。请先验证 Telegram 连接；需要代理时，在程序的运行设置中填写服务器可使用的 HTTP/SOCKS5 代理。个人电脑的本地代理不会随项目部署到服务器，依赖电脑持续在线的代理也无法满足关机后继续监听的需求。
+
 ### 3. 安装常驻服务
 
 首次安装时创建专用用户，安装仓库提供的服务文件：

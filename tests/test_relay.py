@@ -313,7 +313,17 @@ def test_sender_lookup_failure_does_not_drop_message(store, tmp_path, monkeypatc
 def test_sender_column_migration_preserves_existing_deliveries(store):
     task = make_route(store)
     queue(store, task)
-    store.execute("ALTER TABLE deliveries DROP COLUMN sender_name")
+    # Recreate the legacy table without requiring SQLite 3.35's DROP COLUMN.
+    with store.db() as db:
+        schema = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='deliveries'").fetchone()[0]
+        legacy_schema = schema.replace("CREATE TABLE deliveries(", "CREATE TABLE deliveries_legacy(", 1)
+        legacy_schema = legacy_schema.replace("sender_name TEXT NOT NULL DEFAULT '', ", "", 1)
+        db.execute(legacy_schema)
+        columns = ",".join(row[1] for row in db.execute("PRAGMA table_info(deliveries)") if row[1] != "sender_name")
+        db.execute(f"INSERT INTO deliveries_legacy ({columns}) SELECT {columns} FROM deliveries")
+        db.execute("DROP TABLE deliveries")
+        db.execute("ALTER TABLE deliveries_legacy RENAME TO deliveries")
+    assert "sender_name" not in {row["name"] for row in store.all("PRAGMA table_info(deliveries)")}
     migrated = Store(store.path)
     assert migrated.one("SELECT body,status,sender_name FROM deliveries") == {"body": "测试正文", "status": "pending", "sender_name": ""}
     assert queue(migrated, task) == 0
