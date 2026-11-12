@@ -1,0 +1,372 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-12T12:06:34.868539+00:00",
+  "title": "Design System: Message 官网",
+  "extensions": {
+    "colorMeta": {
+      "teal": {
+        "role": "primary",
+        "displayName": "中继青",
+        "tonalRamp": [
+          "oklch(15% 0.09099 187.88)",
+          "oklch(26.4% 0.09099 187.88)",
+          "oklch(37.9% 0.09099 187.88)",
+          "oklch(49.3% 0.09099 187.88)",
+          "oklch(60.7% 0.09099 187.88)",
+          "oklch(72.1% 0.09099 187.88)",
+          "oklch(83.6% 0.09099 187.88)",
+          "oklch(95% 0.09099 187.88)"
+        ]
+      },
+      "teal-dark": {
+        "role": "primary",
+        "displayName": "深中继青",
+        "tonalRamp": [
+          "oklch(15% 0.07296 189.62)",
+          "oklch(26.4% 0.07296 189.62)",
+          "oklch(37.9% 0.07296 189.62)",
+          "oklch(49.3% 0.07296 189.62)",
+          "oklch(60.7% 0.07296 189.62)",
+          "oklch(72.1% 0.07296 189.62)",
+          "oklch(83.6% 0.07296 189.62)",
+          "oklch(95% 0.07296 189.62)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "墨字",
+        "tonalRamp": [
+          "oklch(15% 0.02471 243.93)",
+          "oklch(26.4% 0.02471 243.93)",
+          "oklch(37.9% 0.02471 243.93)",
+          "oklch(49.3% 0.02471 243.93)",
+          "oklch(60.7% 0.02471 243.93)",
+          "oklch(72.1% 0.02471 243.93)",
+          "oklch(83.6% 0.02471 243.93)",
+          "oklch(95% 0.02471 243.93)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "说明灰",
+        "tonalRamp": [
+          "oklch(15% 0.01960 225.50)",
+          "oklch(26.4% 0.01960 225.50)",
+          "oklch(37.9% 0.01960 225.50)",
+          "oklch(49.3% 0.01960 225.50)",
+          "oklch(60.7% 0.01960 225.50)",
+          "oklch(72.1% 0.01960 225.50)",
+          "oklch(83.6% 0.01960 225.50)",
+          "oklch(95% 0.01960 225.50)"
+        ]
+      },
+      "mint": {
+        "role": "secondary",
+        "displayName": "抵达薄荷",
+        "tonalRamp": [
+          "oklch(15% 0.07211 135.91)",
+          "oklch(26.4% 0.07211 135.91)",
+          "oklch(37.9% 0.07211 135.91)",
+          "oklch(49.3% 0.07211 135.91)",
+          "oklch(60.7% 0.07211 135.91)",
+          "oklch(72.1% 0.07211 135.91)",
+          "oklch(83.6% 0.07211 135.91)",
+          "oklch(95% 0.07211 135.91)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "纸白",
+        "tonalRamp": [
+          "oklch(15% 0.00248 165.08)",
+          "oklch(26.4% 0.00248 165.08)",
+          "oklch(37.9% 0.00248 165.08)",
+          "oklch(49.3% 0.00248 165.08)",
+          "oklch(60.7% 0.00248 165.08)",
+          "oklch(72.1% 0.00248 165.08)",
+          "oklch(83.6% 0.00248 165.08)",
+          "oklch(95% 0.00248 165.08)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "细线灰绿",
+        "tonalRamp": [
+          "oklch(15% 0.01448 169.21)",
+          "oklch(26.4% 0.01448 169.21)",
+          "oklch(37.9% 0.01448 169.21)",
+          "oklch(49.3% 0.01448 169.21)",
+          "oklch(60.7% 0.01448 169.21)",
+          "oklch(72.1% 0.01448 169.21)",
+          "oklch(83.6% 0.01448 169.21)",
+          "oklch(95% 0.01448 169.21)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "内容白",
+        "tonalRamp": [
+          "oklch(15% 0.00000 89.88)",
+          "oklch(26.4% 0.00000 89.88)",
+          "oklch(37.9% 0.00000 89.88)",
+          "oklch(49.3% 0.00000 89.88)",
+          "oklch(60.7% 0.00000 89.88)",
+          "oklch(72.1% 0.00000 89.88)",
+          "oklch(83.6% 0.00000 89.88)",
+          "oklch(95% 0.00000 89.88)"
+        ]
+      },
+      "mint-surface": {
+        "role": "neutral",
+        "displayName": "薄荷纸面",
+        "tonalRamp": [
+          "oklch(15% 0.01151 153.68)",
+          "oklch(26.4% 0.01151 153.68)",
+          "oklch(37.9% 0.01151 153.68)",
+          "oklch(49.3% 0.01151 153.68)",
+          "oklch(60.7% 0.01151 153.68)",
+          "oklch(72.1% 0.01151 153.68)",
+          "oklch(83.6% 0.01151 153.68)",
+          "oklch(95% 0.01151 153.68)"
+        ]
+      },
+      "focus": {
+        "role": "functional",
+        "displayName": "焦点蓝",
+        "tonalRamp": [
+          "oklch(15% 0.13299 255.43)",
+          "oklch(26.4% 0.13299 255.43)",
+          "oklch(37.9% 0.13299 255.43)",
+          "oklch(49.3% 0.13299 255.43)",
+          "oklch(60.7% 0.13299 255.43)",
+          "oklch(72.1% 0.13299 255.43)",
+          "oklch(83.6% 0.13299 255.43)",
+          "oklch(95% 0.13299 255.43)"
+        ]
+      },
+      "on-teal": {
+        "role": "neutral",
+        "displayName": "青底亮字",
+        "tonalRamp": [
+          "oklch(15% 0.01889 162.95)",
+          "oklch(26.4% 0.01889 162.95)",
+          "oklch(37.9% 0.01889 162.95)",
+          "oklch(49.3% 0.01889 162.95)",
+          "oklch(60.7% 0.01889 162.95)",
+          "oklch(72.1% 0.01889 162.95)",
+          "oklch(83.6% 0.01889 162.95)",
+          "oklch(95% 0.01889 162.95)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "首屏承诺",
+        "purpose": "首屏大标题，手机缩小。"
+      },
+      "headline": {
+        "displayName": "章节标题",
+        "purpose": "长页信息分组。"
+      },
+      "title": {
+        "displayName": "内容标题",
+        "purpose": "能力与部署说明。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "页面默认说明。"
+      },
+      "label": {
+        "displayName": "行动标签",
+        "purpose": "主要行动和选中项。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "message-arrival",
+        "value": "0 24px 55px #003e372e",
+        "purpose": "首屏目标消息纸片。"
+      },
+      {
+        "name": "product-preview",
+        "value": "0 24px 65px #19372b0f",
+        "purpose": "桌面产品截图。"
+      },
+      {
+        "name": "image-dialog",
+        "value": "0 25px 85px #173a3340",
+        "purpose": "模态大图。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease",
+        "value": "cubic-bezier(.16,1,.3,1)",
+        "purpose": "抵达、位移与状态切换。"
+      },
+      {
+        "name": "state-transition",
+        "value": ".25s",
+        "purpose": "按钮和导航悬停。"
+      },
+      {
+        "name": "source-arrival",
+        "value": "1s 0s",
+        "purpose": "来源纸片进场。"
+      },
+      {
+        "name": "relay-arrival",
+        "value": "1s .2s",
+        "purpose": "中继标志进场。"
+      },
+      {
+        "name": "destination-arrival",
+        "value": "1s .4s",
+        "purpose": "目标纸片抵达。"
+      },
+      {
+        "name": "route-travel",
+        "value": "5s infinite",
+        "purpose": "路由线移动，第二段延迟 1.4s。"
+      },
+      {
+        "name": "result-enter",
+        "value": ".6s",
+        "purpose": "模拟结果出现。"
+      },
+      {
+        "name": "demo-route",
+        "value": ".65s infinite",
+        "purpose": "规则处理中路径。"
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "禁用 CSS 动画和过渡；关闭平滑滚动、JS 滚动差动与演示等待。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide",
+        "value": "1600px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1150px"
+      },
+      {
+        "name": "tablet",
+        "value": "850px"
+      },
+      {
+        "name": "mobile",
+        "value": "600px"
+      },
+      {
+        "name": "narrow-mobile",
+        "value": "360px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Teal Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "浅色区主行动。",
+      "html": "<button class=\"ds-button-primary\">模拟发送消息<svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.65\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-button-primary{display:inline-flex;align-items:center;justify-content:center;gap:12px;font-family:var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif);font-size:14px;font-weight:650;line-height:1.7;min-height:52px;padding:13px 22px;border:0;border-radius:8px;cursor:pointer;transition:background .25s,transform .25s var(--ease,cubic-bezier(.16,1,.3,1));background:var(--teal,#087d76);color:#fff}.ds-button-primary:hover{background:var(--teal-dark,#065d59);transform:translateY(-3px)}.ds-button-primary:active{transform:translateY(0)}.ds-button-primary:focus-visible{outline:3px solid var(--focus,#407cc8);outline-offset:5px}.ds-button-primary:disabled{cursor:wait;transform:none;opacity:.7}@media(prefers-reduced-motion:reduce){.ds-button-primary{transition:none}}"
+    },
+    {
+      "name": "Mint Action",
+      "kind": "button",
+      "refersTo": "button-mint",
+      "description": "青色舞台上的主行动。",
+      "html": "<button class=\"ds-button-mint\">前往 GitHub<svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.65\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-button-mint{display:inline-flex;align-items:center;justify-content:center;gap:12px;font-family:var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif);font-size:14px;font-weight:650;line-height:1.7;min-height:52px;padding:13px 22px;border:0;border-radius:8px;cursor:pointer;transition:background .25s,transform .25s var(--ease,cubic-bezier(.16,1,.3,1));background:var(--mint,#d8f9c9);color:#144c43}.ds-button-mint:hover{background:#edffe5;transform:translateY(-3px)}.ds-button-mint:active{transform:translateY(0)}.ds-button-mint:focus-visible{outline:3px solid var(--focus,#407cc8);outline-offset:5px}.ds-button-mint:disabled{cursor:wait;transform:none;opacity:.7}@media(prefers-reduced-motion:reduce){.ds-button-mint{transition:none}}"
+    },
+    {
+      "name": "Message Sheet",
+      "kind": "card",
+      "refersTo": "message-sheet",
+      "description": "白色纸面展示明确标注的模拟消息。",
+      "html": "<article class=\"ds-message\"><span>产品动态 · 模拟消息</span><h3>新版本已发布，来看看这次更新。</h3><p>新的任务规则，已经准备就绪。</p></article>",
+      "css": ".ds-message{background:var(--surface,#fff);color:var(--ink,#202c36);border-radius:8px;padding:19px;max-width:310px;font-family:var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif);line-height:1.7}.ds-message span{color:var(--teal,#087d76);font-size:12px}.ds-message h3{font-size:14px;font-weight:600;line-height:1.65;margin:9px 0 0}.ds-message p{font-size:12px;color:var(--muted,#58666c);margin:7px 0 0}"
+    },
+    {
+      "name": "Message Type Select",
+      "kind": "input",
+      "refersTo": "select",
+      "description": "有关联标签的模拟内容选择器。",
+      "html": "<label class=\"ds-select-label\" for=\"ds-message-type\">试试不同的消息</label><select class=\"ds-select\" id=\"ds-message-type\"><option>新消息</option><option>消息编辑</option><option>无关消息</option></select>",
+      "css": ".ds-select-label{display:block;font:12px/1.7 var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif);margin:0 0 7px;color:#5c6e65}.ds-select{width:100%;min-height:36px;background:transparent;color:#375c4e;border:1px solid #c1d5ca;border-radius:6px;padding:8px;font:12px/1.7 var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif)}.ds-select:focus-visible{outline:3px solid var(--focus,#407cc8);outline-offset:5px}"
+    },
+    {
+      "name": "Rule Switch",
+      "kind": "input",
+      "description": "显式区分启用与禁用的规则。",
+      "html": "<label class=\"ds-switch\"><span>同步消息编辑</span><input type=\"checkbox\" checked><span class=\"ds-switch-track\" aria-hidden=\"true\"></span></label>",
+      "css": ".ds-switch{display:flex;align-items:center;gap:10px;position:relative;color:var(--ink,#202c36);font:12px/1.7 var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif);cursor:pointer}.ds-switch input{position:absolute;right:0;width:36px;height:22px;opacity:0;cursor:pointer}.ds-switch-track{width:32px;height:18px;border-radius:20px;background:#a3b6a9;position:relative;margin-left:auto;transition:background .2s}.ds-switch-track:after{content:\"\";position:absolute;top:3px;left:3px;width:12px;height:12px;background:#fff;border-radius:50%;transition:transform .2s var(--ease,cubic-bezier(.16,1,.3,1))}.ds-switch input:checked+.ds-switch-track{background:var(--teal,#087d76)}.ds-switch input:checked+.ds-switch-track:after{transform:translateX(14px)}.ds-switch input:focus-visible+.ds-switch-track{outline:3px solid #407cc8;outline-offset:4px}@media(prefers-reduced-motion:reduce){.ds-switch-track,.ds-switch-track:after{transition:none}}"
+    },
+    {
+      "name": "Section Navigation",
+      "kind": "nav",
+      "description": "页头文字导航，以轻线响应悬停。",
+      "html": "<nav class=\"ds-nav\" aria-label=\"官网章节\"><a href=\"#journey\">消息如何抵达</a><a href=\"#product\">管理界面</a><a href=\"#start\">开始使用</a></nav>",
+      "css": ".ds-nav{display:flex;gap:32px;font:14px/1.7 var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif);color:var(--ink,#202c36)}.ds-nav a{position:relative;text-decoration:none;color:inherit}.ds-nav a:after{content:\"\";position:absolute;left:0;right:0;bottom:-7px;height:2px;background:var(--teal,#087d76);transform:scaleX(0);transform-origin:left;transition:transform .25s var(--ease,cubic-bezier(.16,1,.3,1))}.ds-nav a:hover:after{transform:scaleX(1)}.ds-nav a:focus-visible{outline:3px solid var(--focus,#407cc8);outline-offset:5px}@media(prefers-reduced-motion:reduce){.ds-nav a:after{transition:none}}"
+    },
+    {
+      "name": "Journey Tabs",
+      "kind": "nav",
+      "description": "选中线与字重共同区分状态；实际键盘行为由 app.js 提供。",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\" aria-label=\"演示模式\"><button role=\"tab\" aria-selected=\"true\">交给 Message</button><button role=\"tab\" aria-selected=\"false\" tabindex=\"-1\">自己去查看</button></div>",
+      "css": ".ds-tabs{display:flex;gap:30px;border-bottom:1px solid var(--line,#d8e4df);font-family:var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif)}.ds-tabs button{font-family:inherit;line-height:1.7;padding:12px 0 14px;font-size:14px;color:var(--muted,#58666c);border:0;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer}.ds-tabs button[aria-selected=true]{color:var(--teal,#087d76);border-bottom-color:var(--teal,#087d76);font-weight:650}.ds-tabs button:focus-visible{outline:3px solid var(--focus,#407cc8);outline-offset:5px}"
+    },
+    {
+      "name": "Setup Choice",
+      "kind": "button",
+      "description": "浅薄荷区中的部署路径选项。",
+      "html": "<button class=\"ds-setup\"><span>Windows 本地运行<small>适合日常电脑使用</small></span><svg width=\"19\" height=\"19\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.65\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12h14m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-setup{display:flex;align-items:center;gap:20px;text-align:left;font-family:var(--font,'Message Sans','Segoe UI','Microsoft YaHei','Noto Sans SC',sans-serif);line-height:1.7;padding:25px 21px;border-radius:10px;min-height:106px;border:1px solid transparent;background:var(--mint-surface,#f7fff9);color:var(--teal-dark,#065d59);cursor:pointer}.ds-setup>span{font-size:16px;font-weight:600}.ds-setup small{display:block;font-size:11px;font-weight:400;margin-top:5px}.ds-setup svg{margin-left:auto}.ds-setup:focus-visible{outline:3px solid var(--focus,#407cc8);outline-offset:5px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "消息的交接",
+    "overview": "延展现有产品的中继青，以饱和色块、轻盈消息纸片、明确箭头和宽松中文排版，把路由呈现为可理解的交接过程。大标题负责承诺，消息内容与真实产品界面负责解释；细线与留白组织信息。\n\n这是官网目录的局部设计记录，依据当前可本地审阅的实现，不代表已获发布批准。产品工作台继续遵循根目录 DESIGN.md。自托管的 Message Sans 来自 Noto Sans SC 子集；所有演示内容与截图均使用模拟数据，账号与凭据不进入展示内容。",
+    "keyCharacteristics": [
+      "中继青构成宽阔舞台，浅薄荷突出行动与消息交接。",
+      "中文大标题与较轻说明形成明确层级。",
+      "消息纸片、路由线、真实产品截图共同解释机制。",
+      "动作响应与抵达动画有目的，减少动态偏好下可静态理解。"
+    ],
+    "rules": [
+      {
+        "name": "The Teal Stage Rule",
+        "body": "饱和中继青可以占据整个章节；在浅色区域，青色集中表达行动、选中项与路由关系。",
+        "section": "colors"
+      },
+      {
+        "name": "The Chinese First Rule",
+        "body": "以中文标题和说明为主要阅读层级；技术命令使用等宽字体，不用系统字体另设装饰性展示角色。",
+        "section": "typography"
+      },
+      {
+        "name": "The Handoff Motion Rule",
+        "body": "动态说明消息抵达与规则处理：柔和进场、轻微纵向差动、路径移动和结果出现；保持滚动自由，并尊重 prefers-reduced-motion。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** 用中继青延续产品身份，在饱和色面上用薄荷突出行动。",
+      "**Do** 用清楚的来源、规则、目标和显式模拟状态解释消息过程。",
+      "**Do** 保留键盘焦点、标签键盘导航和减少动态偏好支持。",
+      "**Do** 保持正文与辅助说明至少 4.5:1 的文字对比度。",
+      "**Do** 展示经过账号隔离的模拟消息与产品截图。"
+    ],
+    "donts": [
+      "**Don't** 把模拟完成状态描述为真实账号连接或真实通知抵达。",
+      "**Don't** 用长时间滚动锁定承载交接动画。",
+      "**Don't** 把官网的宽松章节排版覆盖到根目录的运维工作台规范。"
+    ]
+  }
+}

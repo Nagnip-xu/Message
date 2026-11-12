@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#087d76">
+  <meta name="description" content="Message 消息中继，将 Telegram 群组、频道与话题中的消息，按你的规则送到飞书。中文可视化管理，支持 Windows 本地运行与 Linux 服务器部署。">
+  <title>Message 消息中继 · 让消息主动找到你</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+<!--
+THESIS: From chasing messages to receiving selected messages. Show the journey, then prove it with the real product.
+OWN-WORLD: Established relay teal, ink typography, mint message sheets, crisp arrows and spacious Chinese sans. Saturated fields replace generic feature-card grids.
+STORY: Understand Telegram-to-Feishu routing, try synthetic rules, inspect the product, choose a GitHub installation path.
+FIRST VIEWPORT: A broad teal stage holds an oversized left headline and a staged message handoff at right. Primary GitHub action sits directly below the promise.
+FORM: Narrative before-and-after, grounded candidate 3, surface seed e8682c7f.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+-->
+  <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-external" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.3-4.3-2.1-6-2.6M15 22v-3.4a3 3 0 0 0-.8-2.3c2.7-.3 5.6-1.3 5.6-6a4.6 4.6 0 0 0-1.2-3.2 4.3 4.3 0 0 0-.1-3.2s-1-.3-3.4 1.2a11.7 11.7 0 0 0-6.2 0C6.5 3.6 5.5 3.9 5.5 3.9a4.3 4.3 0 0 0-.1 3.2 4.6 4.6 0 0 0-1.2 3.2c0 4.7 2.9 5.7 5.6 6a3 3 0 0 0-.8 2.3V22"/></symbol>
+    <symbol id="i-plane" viewBox="0 0 24 24"><path d="m21 3-6 18-4-8-8-4 18-6Zm0 0L11 13"/></symbol>
+    <symbol id="i-feishu" viewBox="0 0 24 24"><path d="m4 5 7 4 9-4-6 8-8 1m0 0 6 6 8-11M4 5l2 9"/></symbol>
+    <symbol id="i-replay" viewBox="0 0 24 24"><path d="M3 10a9 9 0 1 1 1 8M3 4v6h6"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M12 6.5h5M12 17.5h5"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <a class="brand" href="#" aria-label="Message 消息中继首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 25 25 7M14 7h11v11M7 14v11h11"/></svg></span><span>Message<span class="brand-name">消息中继</span></span></a>
+    <button class="menu-button" aria-label="打开导航" aria-expanded="false" aria-controls="main-nav"><svg class="icon"><use href="#i-menu"/></svg></button>
+    <nav id="main-nav" aria-label="官网导航">
+      <a href="#demo">体验消息流转</a><a href="#product">看看工作台</a><a href="#start">开始使用</a><a href="#faq">常见问题</a>
+    </nav>
+    <a class="header-github" href="https://github.com/Nagnip-xu/Message" target="_blank" rel="noopener noreferrer">GitHub <svg class="icon"><use href="#i-external"/></svg></a>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-main wrap">
+        <div class="hero-copy">
+          <h1 id="hero-title">让消息找你，<br>别再追着<span class="headline-last">消息跑<span class="full-stop">。</span></span></h1>
+          <p>关注的 Telegram 消息，按你的规则送到飞书。<br class="desktop-break">少一次来回切换，多一点从容。</p>
+          <div class="hero-actions"><a class="button button-mint" href="https://github.com/Nagnip-xu/Message" target="_blank" rel="noopener noreferrer"><svg class="icon"><use href="#i-github"/></svg>前往 GitHub <svg class="icon"><use href="#i-external"/></svg></a><a class="hero-demo-link" href="#demo">看它如何工作 <svg class="icon"><use href="#i-arrow"/></svg></a></div>
+          <p class="hero-note">正式版 1.0.1 <span>·</span> 中文可视化管理 <span>·</span> 自己部署</p>
+        </div>
+        <div class="hero-scene" aria-label="Telegram 消息经 Message 转发到飞书的示意">
+          <div class="scene-orbit orbit-one"></div><div class="scene-orbit orbit-two"></div>
+          <div class="source-slip"><div class="slip-label"><svg class="icon"><use href="#i-plane"/></svg>Telegram<span>消息来源</span></div><div class="source-lines"><span></span><span></span><span></span></div><div class="slip-bottom">群组 / 频道 / 话题<svg class="icon"><use href="#i-arrow"/></svg></div></div>
+          <div class="relay-cube" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 25 25 7M14 7h11v11M7 14v11h11"/></svg></div>
+          <div class="destination-slip"><div class="slip-label"><svg class="icon"><use href="#i-feishu"/></svg>飞书<span class="example-tag">示例通知</span></div><span class="message-source">产品动态 / 版本发布</span><h3>你关心的更新，到了。</h3><p>【新消息】新版本现已发布。<br>消息正文、发送人和原链接，一起送达。</p><div class="slip-person"><span class="avatar">林</span><span>发送人：林同学<small>原消息与转发时间，清楚分行</small></span><svg class="icon"><use href="#i-check"/></svg></div></div>
+          <div class="scene-caption"><span class="caption-line"></span>从消息来源，抵达你的日常。</div>
+        </div>
+      </div>
+      <div class="hero-route wrap"><span><svg class="icon"><use href="#i-plane"/></svg>Telegram</span><div class="route-track"><span></span></div><strong>Message</strong><div class="route-track track-two"><span></span></div><span><svg class="icon"><use href="#i-feishu"/></svg>飞书</span><p>关注不必守着，消息自有去处。</p></div>
+    </section>
+
+    <section class="journey section wrap" id="demo" aria-labelledby="journey-title">
+      <div class="section-heading"><h2 id="journey-title">同一条消息，<br>换一种抵达方式。</h2><p>从“有空再去翻翻”，到消息主动送达。<br>试一试这段流转，也试试你的规则。</p></div>
+      <div class="journey-mode" role="tablist" aria-label="消息接收方式"><button role="tab" id="mode-relay" aria-selected="true" aria-controls="journey-panel" tabindex="0">交给 Message</button><button role="tab" id="mode-manual" aria-selected="false" aria-controls="journey-panel" tabindex="-1">来回查看消息</button></div>
+      <div class="journey-panel" id="journey-panel" role="tabpanel" aria-labelledby="mode-relay">
+        <div class="demo-source"><div class="demo-app"><svg class="icon"><use href="#i-plane"/></svg><strong>Telegram</strong><span>示例来源</span></div><div class="sample-message"><span class="sample-channel">产品动态 · 发布话题</span><h3 id="sample-title">新版本已发布，来看看这次更新。</h3><p id="sample-body">新的任务规则，已经准备就绪。</p><div class="sample-meta"><span>林同学</span><span>文字消息</span></div></div><label class="select-label" for="message-type">换一条示例消息</label><select id="message-type"><option value="new">新消息：产品版本发布</option><option value="edit">消息编辑：补充发布说明</option><option value="noise">其他消息：今天聊点别的</option></select></div>
+        <div class="demo-routing"><span class="routing-title">你的转发规则</span><label class="rule-switch"><span>同步消息编辑</span><input id="rule-edit" type="checkbox" checked role="switch"><span class="switch-visual" aria-hidden="true"></span></label><label class="rule-switch"><span>只看包含“发布”的消息</span><input id="rule-keyword" type="checkbox" role="switch"><span class="switch-visual" aria-hidden="true"></span></label><div class="routing-visual" aria-hidden="true"><span></span><svg class="icon"><use href="#i-arrow"/></svg><span></span></div><button class="button button-teal" id="send-demo"><svg class="icon"><use href="#i-plane"/></svg>模拟发送消息</button><p class="demo-disclaimer">互动演示 · 不连接账号、不发送真实通知</p></div>
+        <div class="demo-destination"><div class="demo-app"><svg class="icon"><use href="#i-feishu"/></svg><strong>飞书</strong><span>示例通知</span></div><div id="demo-result" class="demo-result" aria-live="polite" aria-atomic="true"><div class="result-placeholder"><svg class="icon"><use href="#i-feishu"/></svg><h3>重要消息，有个好去处。</h3><p>点击“模拟发送消息”，<br>看看这一条消息如何抵达。</p></div></div><div class="demo-state"><span class="state-dot"></span><span id="demo-status" role="status">等待演示</span></div></div>
+      </div>
+      <div class="journey-footnote"><span>消息先经过你的规则，再进入发送队列。</span><a href="https://github.com/Nagnip-xu/Message#功能与边界" target="_blank" rel="noopener noreferrer">了解转发边界 <svg class="icon"><use href="#i-external"/></svg></a></div>
+    </section>
+
+    <section class="product-section section" id="product" aria-labelledby="product-title">
+      <div class="wrap"><div class="section-heading"><h2 id="product-title">复杂的转发，<br>用清楚的界面管理。</h2><p>来源、规则、去向和结果，各有位置。<br>想换个群、少看些更新，不用改代码。</p></div>
+        <div class="product-tabs" role="tablist" aria-label="管理界面预览"><button id="view-workbench" role="tab" aria-selected="true" aria-controls="product-panel" tabindex="0" data-view="workbench">监听工作台<span>知道正在听什么</span></button><button id="view-rules" role="tab" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-view="rules">转发规则<span>让消息更合心意</span></button><button id="view-history" role="tab" aria-selected="false" aria-controls="product-panel" tabindex="-1" data-view="history">发送记录<span>每次转发都有迹可循</span></button></div>
+        <div class="product-panel" id="product-panel" role="tabpanel" aria-labelledby="view-workbench"><div class="window-bar"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span id="window-label">Message / 监听工作台</span><button id="expand-preview" aria-label="放大查看管理界面截图"><svg class="icon"><use href="#i-external"/></svg></button></div><button class="screenshot-button" id="screenshot-button" aria-label="放大查看管理界面截图"><img id="product-image" src="assets/workbench.webp" width="1440" height="1050" alt="Message 监听工作台，展示连接状态和模拟监听任务" loading="lazy"></button></div>
+        <div class="product-caption"><span id="product-description">一个工作台，看清来源、目标与任务状态。</span><span>实际界面 · 模拟数据 <svg class="icon" aria-hidden="true"><use href="#i-external"/></svg> 点击可放大</span></div>
+      </div>
+    </section>
+
+    <section class="features section wrap" aria-labelledby="features-title"><div class="features-intro"><h2 id="features-title">关注有范围，<br>转发有分寸。</h2><p>选中你关心的内容，<br>把其余的留在原处。</p></div><div class="feature-list"><article><h3>一个话题，也值得专门关注。</h3><p>群组、频道，或群里的某个话题，按你的关注范围创建任务；不同来源可以送往不同飞书机器人。</p><span class="feature-detail">群组 / 频道 / 指定话题</span></article><article><h3>新消息要看，反复编辑可以不看。</h3><p>每个任务独立设置“同步消息编辑”。再配合包含与排除关键词，让送到飞书的内容更贴合你的需要。</p><span class="feature-detail">编辑开关 / 关键词过滤</span></article><article><h3>断线之后，尽力接上。</h3><p>持久化队列记录发送进度，重连后扫描近期消息。结果未知的发送会标为“待核对”，由你确认，避免盲目重发。</p><span class="feature-detail">近期补查 / 发送重试 / 人工核对</span></article></div></section>
+
+    <section class="start-section section" id="start" aria-labelledby="start-title"><div class="wrap"><div class="section-heading"><h2 id="start-title">从你的电脑开始，<br>也可以交给服务器。</h2><p>一套程序，两种运行方式。<br>代码和数据，保存在你自己的设备上。</p></div><div class="setup-layout"><div class="setup-tabs" role="tablist" aria-label="选择部署方式"><button role="tab" id="setup-windows" aria-selected="true" aria-controls="setup-panel" tabindex="0" data-setup="windows"><svg class="icon"><use href="#i-monitor"/></svg><span>Windows 本地运行<small>适合先试试，双击启动</small></span><svg class="icon"><use href="#i-arrow"/></svg></button><button role="tab" id="setup-server" aria-selected="false" aria-controls="setup-panel" tabindex="-1" data-setup="server"><svg class="icon"><use href="#i-server"/></svg><span>Linux 服务器常驻<small>电脑关机后，继续接收消息</small></span><svg class="icon"><use href="#i-arrow"/></svg></button></div><div class="setup-panel" id="setup-panel" role="tabpanel" aria-labelledby="setup-windows"><h3 id="setup-title">先把 Message 带到你的电脑。</h3><p id="setup-description">安装 Python 3.11+、Node.js 22.12+ 和 Git，然后在终端运行：</p><div class="code-block"><code id="setup-command">git clone https://github.com/Nagnip-xu/Message.git<br>cd Message<br>.\Start.cmd</code><button id="copy-command" aria-label="复制安装命令"><svg class="icon"><use href="#i-copy"/></svg><span>复制</span></button></div><p class="setup-next" id="setup-next">首次启动会安装依赖并构建页面。打开后，依次配置 Telegram、飞书机器人和监听任务。</p><a class="text-link" id="setup-guide" href="https://github.com/Nagnip-xu/Message#windows-安装与启动" target="_blank" rel="noopener noreferrer">查看完整 Windows 指南 <svg class="icon"><use href="#i-external"/></svg></a></div></div><div class="setup-requirements"><span>你需要准备</span><p>Telegram API ID / Hash</p><p>可访问目标来源的账号</p><p>飞书群自定义机器人 Webhook</p></div></div></section>
+
+    <section class="faq section wrap" id="faq" aria-labelledby="faq-title"><h2 id="faq-title">你可能还想知道。</h2><div class="faq-list"><details open><summary>电脑关机后，还能收到消息吗？<svg class="icon"><use href="#i-plus"/></svg></summary><p>本地运行时，电脑需要保持开机、联网且不休眠。部署在长期在线的服务器后，监听由服务器完成，关闭电脑、管理网页或 SSH 隧道都不会停止服务器后台。</p></details><details><summary>服务器部署，需要域名吗？<svg class="icon"><use href="#i-plus"/></svg></summary><p>不需要。通过服务器 IP 建立 SSH 隧道，就可以打开管理界面，无需向公网开放管理端口。当前管理页没有独立账号鉴权，请按文档使用 SSH 隧道访问。</p></details><details><summary>图片和附件也会转发吗？<svg class="icon"><use href="#i-plus"/></svg></summary><p>1.0.1 会转发文字、图片说明和附件提示，并附可用的原消息链接。图片、视频和文件本体暂不上传到飞书，需要回 Telegram 查看。</p></details><details><summary>需要 Telegram 群管理员权限吗？<svg class="icon"><use href="#i-plus"/></svg></summary><p>通常不需要。使用你自己的 Telegram 账号，监听该账号已经加入且可以访问的群组、频道或话题。开启内容保护的消息会被跳过，程序不会绕过访问限制。</p></details><details><summary>飞书接收成功，就一定会弹窗吗？<svg class="icon"><use href="#i-plus"/></svg></summary><p>不一定。“接口已接收”表示飞书接口接收成功，不代表手机必然弹窗。请同时检查飞书群免打扰、手机系统通知权限以及设备网络。</p></details><details><summary>服务器的代理，需要一直开着电脑吗？<svg class="icon"><use href="#i-plus"/></svg></summary><p>不需要，前提是服务器使用自己可访问、独立运行的代理。电脑上的 Sparkle 或系统代理不会自动变成服务器代理。具体配置请查看 README 中的服务器代理说明。</p></details></div></section>
+
+    <section class="closing"><div class="wrap closing-inner"><h2>把关注留给内容，<br>把传递交给 Message。</h2><div><a class="button button-mint" href="https://github.com/Nagnip-xu/Message" target="_blank" rel="noopener noreferrer">在 GitHub 获取项目 <svg class="icon"><use href="#i-external"/></svg></a><p>正式版 1.0.1 · Windows / Linux</p></div></div></section>
+  </main>
+
+  <footer class="wrap site-footer"><a class="brand footer-brand" href="#"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 25 25 7M14 7h11v11M7 14v11h11"/></svg></span><span>Message</span></a><p>Telegram → 飞书，让消息有个好去处。</p><nav aria-label="页脚导航"><a href="https://github.com/Nagnip-xu/Message#readme" target="_blank" rel="noopener noreferrer">使用文档</a><a href="https://github.com/Nagnip-xu/Message/issues" target="_blank" rel="noopener noreferrer">问题反馈</a><a href="https://github.com/Nagnip-xu" target="_blank" rel="noopener noreferrer">Nagnip-xu <svg class="icon"><use href="#i-external"/></svg></a></nav></footer>
+  <dialog id="image-dialog" aria-label="管理界面大图"><div class="image-dialog-toolbar"><span id="dialog-label">管理界面 · 模拟数据</span><button id="close-image">关闭 <span aria-hidden="true">×</span></button></div><img id="dialog-image" src="assets/workbench.webp" alt="Message 管理界面放大图"></dialog>
+  <div class="toast" id="toast" role="status" hidden></div>
+</body>
+</html>

@@ -3,9 +3,11 @@
 **正式版 1.0.1** · 中文可视化管理 · Windows 本地运行 · Linux 服务器常驻
 
 [![自动验证](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml)
-[发布版本](https://github.com/Nagnip-xu/Message/releases) · [问题反馈](https://github.com/Nagnip-xu/Message/issues)
+**[访问官网 →](https://nagnip-xu.github.io/Message/)** · [发布版本](https://github.com/Nagnip-xu/Message/releases) · [问题反馈](https://github.com/Nagnip-xu/Message/issues)
 
 Message 使用你自己的 Telegram 账号监听已加入的群组、频道和群话题，将符合规则的消息推送到指定的飞书群自定义机器人。在网页中选择监听来源、切换消息编辑同步、配置关键词并查看发送结果，无需修改代码。
+
+官网提供互动消息演示、工作台预览和安装入口，直接访问 **https://nagnip-xu.github.io/Message/** 即可，无需下载项目或启动本地服务。官网由 GitHub Pages 托管；真正的 Telegram 监听和飞书转发仍需按本文部署后台。
 
 ![Message 管理界面：发送记录](docs/images/preview.png)
 
@@ -37,6 +39,7 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 - [更新与备份](#更新与备份)
 - [常见问题](#常见问题)
 - [开发与验证](#开发与验证)
+- [官网维护与发布](#官网维护与发布)
 - [项目结构](#项目结构)
 
 ## 功能与边界
@@ -594,16 +597,41 @@ node scripts/integration.mjs
 
 覆盖机器人配置、任务/话题、新消息/编辑、去重、规则、暂停恢复、历史查询和移动布局。`scripts/capture.mjs` 读取本机正式服务截图，可能含真实配置，产物在被 Git 忽略的 `artifacts/`，不作为公开截图提交。
 
+## 官网维护与发布
+
+官网源码位于 `website/`，为独立的 HTML/CSS/JavaScript 静态页面。包含消息流转与规则演示、真实工作台截图（模拟数据）、Windows/Linux 安装入口和常见问题。页面不连接账号或后台 API，访问官网不会展示你的私人监听状态。
+
+本地预览（项目根目录执行）：
+
+```powershell
+python -m http.server 8877 --bind 127.0.0.1 --directory website
+```
+
+打开 **http://127.0.0.1:8877/**。该端口仅用于官网预览；本地后台默认 8765，服务器管理隧道示例端口为 18765。
+
+发布到本仓库的 GitHub Pages：
+
+1. 在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
+2. 将 `website/` 或 `.github/workflows/pages.yml` 的修改提交到 `main`。
+3. 在 **Actions → Deploy Message website** 查看发布结果，也可以通过 **Run workflow** 手动重新部署。
+4. 发布成功后访问 **https://nagnip-xu.github.io/Message/**。
+
+工作流只打包官网 HTML、CSS、JavaScript 和 `assets/`，不上传本机账号、部署工具或备份。资源使用相对路径，兼容 GitHub Pages 的 `/Message/` 子路径；不需要购买域名。修改代码后后台监听无需重启。
+
+详细文件说明见 [website/README.md](website/README.md)。自托管字体的许可保存在官网 `assets/` 中。
+
 ## 项目结构
 
 ```text
 relay/                       后端、Telegram 监听、飞书发送、配置与 SQLite 队列
 frontend/src/                React / TypeScript 中文管理界面
+website/                     独立中文官网、消息演示与静态资源
 frontend/scripts/            浏览器集成测试和本机截图脚本
 tests/                       后端测试与隔离 UI 测试服务
 deploy/message-relay.service Linux systemd 服务示例
 docs/images/                 README 使用的模拟数据截图
 .github/workflows/ci.yml     Windows / Linux 后端测试与前端构建
+.github/workflows/pages.yml  GitHub Pages 官网自动发布
 Start.cmd / Stop.cmd         Windows 启动 / 安全停止
 scripts/                    依赖更新与登录后自动启动
 run_server.py                回环监听、单实例锁、单 worker 入口
