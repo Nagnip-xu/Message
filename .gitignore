@@ -6,6 +6,10 @@ data/
 .env
 __pycache__/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 *.pyc
 artifacts/
 dist/
@@ -21,3 +25,6 @@ build/
 backups/
 /message-frontend.tar.gz
 /message-data.tar.gz
+.DS_Store
+Thumbs.db
+Desktop.ini

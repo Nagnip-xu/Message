@@ -2,11 +2,14 @@
 
 **正式版 1.0.1** · 中文可视化管理 · Windows 本地运行 · Linux 服务器常驻
 
+[![自动验证](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml)
+[发布版本](https://github.com/Nagnip-xu/Message/releases) · [问题反馈](https://github.com/Nagnip-xu/Message/issues)
+
 Message 使用你自己的 Telegram 账号监听已加入的群组、频道和群话题，将符合规则的消息推送到指定的飞书群自定义机器人。在网页中选择监听来源、切换消息编辑同步、配置关键词并查看发送结果，无需修改代码。
 
 ![Message 管理界面：发送记录](docs/images/preview.png)
 
-以上为隔离集成测试中的模拟数据截图，不含真实账号、Webhook 或消息；测试耗时不代表实际网络性能。
+本页截图均使用隔离集成测试中的模拟账号、来源和消息；测试耗时不代表实际网络性能。截图中的 8766 是测试服务端口，正式使用请按下文选择本地或服务器地址。
 
 ```text
 Telegram 群组 / 频道 / 话题
@@ -21,11 +24,15 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 ## 目录
 
 - [功能与边界](#功能与边界)
+- [运行方式怎么选](#运行方式怎么选)
+- [界面预览](#界面预览)
 - [运行环境](#运行环境)
 - [Windows 安装与启动](#windows-安装与启动)
 - [首次配置与使用](#首次配置与使用)
 - [日常管理](#日常管理)
 - [Linux 服务器部署](#linux-服务器部署)
+- [服务器代理配置](#服务器代理配置)
+- [电脑重启后查看服务器状态](#电脑重启后查看服务器状态)
 - [从本机迁移到服务器](#从本机迁移到服务器)
 - [更新与备份](#更新与备份)
 - [常见问题](#常见问题)
@@ -54,6 +61,40 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 - 绕过内容保护或还原匿名身份：受保护内容跳过，匿名消息仅展示 Telegram 提供的身份。
 - 多 Telegram 账号并行、带账号鉴权的公网管理站点、打包好的 Windows EXE。
 - 保证恢复全部历史消息、每个中间编辑版本，或保证手机弹窗。恢复受扫描窗口、权限与网络影响；飞书接口接收成功不等于手机必然弹出通知。
+
+## 运行方式怎么选
+
+| 对比 | Windows 电脑本地运行 | Linux 服务器常驻 |
+|---|---|---|
+| 实际监听设备 | 你的电脑 | 你的云服务器 |
+| 电脑关机后 | 停止实时监听 | 服务器继续监听和转发 |
+| 管理页入口 | `http://127.0.0.1:8765/` | 建立 SSH 隧道后访问 `http://127.0.0.1:18765/` |
+| 是否需要域名 | 不需要 | 不需要，用服务器 IP 连接 SSH 即可 |
+| 是否需要公网开放 8765 | 不需要 | 不需要 |
+| Telegram 代理 | 使用电脑可访问的代理 | 使用服务器可访问、能独立运行的代理 |
+| 启动方式 | 双击 `Start.cmd` | systemd 开机启动 |
+
+**希望电脑关机后也能收到通知，请选择服务器部署。** 浏览器只负责管理，实际监听和发送由后台完成；飞书客户端负责展示通知。手机上的群免打扰、系统通知权限和网络仍需自行设置。
+
+## 界面预览
+
+### 监听工作台
+
+查看 Telegram 连接、机器人、运行中的任务和最近动态，按任务暂停、恢复或编辑规则。
+
+![监听工作台：连接状态、统计及监听任务](docs/images/workbench.png)
+
+### 创建监听任务
+
+选择群组或频道，话题群可以精确到指定话题，再选择接收通知的飞书机器人。
+
+![创建监听任务：选择来源、话题和飞书机器人](docs/images/create-task.png)
+
+### 调整转发规则
+
+每个任务可独立关闭“同步消息编辑”，也可以设置包含/排除关键词和断线补发。
+
+![编辑监听规则：消息编辑开关、关键词和断线补发](docs/images/rule-editor.png)
 
 ## 运行环境
 
@@ -254,7 +295,19 @@ test -f /opt/Message/frontend/dist/index.html
 
 服务器已安装兼容的 Node.js 时，也可以在 `/opt/Message/frontend` 运行 `npm ci` 和 `npm run build`，省略本机打包上传步骤。
 
-**Alibaba Cloud Linux 3**：将上面的 `apt` 安装命令替换为 `sudo dnf install -y python3.11 python3.11-pip git ca-certificates tar`。系统自带的 Python 可能是 3.6，不满足本项目要求；克隆仓库后，使用 `sudo python3.11 -m venv /opt/Message/.venv` 创建虚拟环境。后续依赖安装、静态页面上传和 systemd 配置步骤相同，无需替换系统 Python。本项目已在 Alibaba Cloud Linux 3 + Python 3.11 环境验证。
+**Alibaba Cloud Linux 3** 使用以下命令代替上面的 Ubuntu 安装步骤：
+
+```bash
+sudo dnf install -y python3.11 python3.11-pip git ca-certificates tar
+python3.11 --version
+sudo git clone https://github.com/Nagnip-xu/Message.git /opt/Message
+sudo python3.11 -m venv /opt/Message/.venv
+sudo /opt/Message/.venv/bin/python -m pip install -r /opt/Message/requirements.lock.txt
+sudo tar -xzf /tmp/message-frontend.tar.gz -C /opt/Message
+test -f /opt/Message/frontend/dist/index.html
+```
+
+系统自带的 Python 可能是 3.6，不满足本项目要求；这里并行安装 Python 3.11，无需替换系统 Python。两套命令根据系统选择一套执行，再继续配置 systemd。本项目已在 Alibaba Cloud Linux 3 + Python 3.11 环境验证。
 
 中国内地地域的服务器可能无法直连 Telegram。请先验证 Telegram 连接；需要代理时，在程序的运行设置中填写服务器可使用的 HTTP/SOCKS5 代理。个人电脑的本地代理不会随项目部署到服务器，依赖电脑持续在线的代理也无法满足关机后继续监听的需求。
 
@@ -309,6 +362,77 @@ sudo systemctl disable --now message-relay
 ```
 
 Windows 服务器可按本地方式部署，但自动启动脚本需要 Windows 用户先登录；需要无人登录即可常驻时，可选 Linux systemd 方式。
+
+## 服务器代理配置
+
+如果服务器可以直接连接 Telegram，在 **运行设置** 中将代理留空。需要代理时，先确保服务器上已有可用的 HTTP/SOCKS5 代理服务，或有服务器能访问的远程代理，再填写地址。
+
+| 已有配置 | 在 Message 中如何填写 |
+|---|---|
+| HTTP 代理 | `http://代理地址:端口` |
+| SOCKS5 代理 | `socks5://代理地址:端口` |
+| 需要账号密码的代理 | `socks5://用户名:密码@代理地址:端口`，特殊字符按 URL 编码 |
+| 本机正在使用的 Sparkle / Clash | 电脑端的监听地址不能直接给服务器使用；需要在服务器单独配置代理 |
+| AnyTLS 等节点链接、Clash/Mihomo 订阅 | 先在服务器部署支持相应协议的代理内核，再把该内核提供的 HTTP/SOCKS5 地址填入 Message |
+
+**Message 不直接导入订阅链接或 AnyTLS 节点。** 本仓库不附带代理节点、订阅或通用代理安装脚本。例如已单独将服务器上的代理内核配置为仅监听 `127.0.0.1:17890` 时，可填写 `socks5://127.0.0.1:17890`；端口是示例，按实际配置填写。
+
+服务器本机代理也应单独配置开机启动、异常重启和订阅更新。代理服务名与命令取决于你安装的内核；`message-relay.service` 只管理本项目，不会自动安装代理。代理可用后保存设置，确认 Telegram 显示已连接。
+
+当服务器运行独立代理时，关闭电脑上的系统代理、Sparkle 或关闭电脑均不影响服务器监听。服务器自身断网、代理失效、节点流量耗尽或订阅到期仍会影响连接。
+
+## 电脑重启后查看服务器状态
+
+### 1. 重新建立管理通道
+
+在电脑 PowerShell 中运行（替换用户名和 `SERVER_IP`）：
+
+```powershell
+ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L 18765:127.0.0.1:8765 ubuntu@SERVER_IP
+```
+
+如果服务器使用 `root` 登录，改为 `root@SERVER_IP`；使用自定义 SSH 端口时增加 `-p 端口`。Windows 已安装 OpenSSH 但找不到 `ssh` 命令时，可以用完整路径：
+
+```powershell
+& "$env:WINDIR\System32\OpenSSH\ssh.exe" -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -L 18765:127.0.0.1:8765 ubuntu@SERVER_IP
+```
+
+首次连接时核对服务器主机指纹，按提示完成 SSH 认证。密码输入不显示字符是正常现象；使用 SSH 密钥时按自己的密钥配置连接。成功后窗口没有新输出也正常，保持终端打开。
+
+### 2. 打开页面并检查监听
+
+浏览器进入 **http://127.0.0.1:18765/**，依次检查：
+
+1. **Telegram 账号**：账号已登录、连接正常。
+2. **监听工作台**：目标任务为监听中，目标机器人已启用。
+3. **发送记录**：检查是否积压、失败或待核对；有新消息时核实记录及飞书群收到的内容。
+4. **运行动态**：查看连接或恢复扫描相关提示；有恢复窗口超限时到原群核对。
+
+按上述隧道配置，**18765 页面显示服务器后台状态**，数据也保存在服务器。地址中的 `127.0.0.1` 是电脑上的隧道入口，并不代表监听在电脑上运行。页面中“本机”“本地服务”等字样是界面的通用文案，不能据此判断实际运行设备。
+
+**页面打不开不等于监听停止。** 电脑重启或关掉 SSH 终端会断开管理通道，重新连接即可；服务器后台不会随隧道关闭而停止。18765 被占用时改用其他本机端口，例如 `-L 18766:127.0.0.1:8765`，然后访问 `http://127.0.0.1:18766/`。
+
+### 3. 页面无法连接时检查服务器
+
+另开终端 SSH 登录：
+
+```powershell
+ssh ubuntu@SERVER_IP
+```
+
+进入服务器后执行：
+
+```bash
+# 运行与开机启动状态：正常通常分别输出 active、enabled
+sudo systemctl is-active message-relay
+sudo systemctl is-enabled message-relay
+
+# 进程健康检查与详细日志
+curl --fail http://127.0.0.1:8765/api/health
+sudo journalctl -u message-relay -n 50 --no-pager
+```
+
+健康接口返回 `ok: true` 只表示网页/API 进程可用，仍需在页面确认 Telegram 连接、任务开关和发送记录。长时间没有新记录也可能是来源没有新消息，不能仅凭“没有通知”判定故障。
 
 ## 从本机迁移到服务器
 
@@ -392,6 +516,14 @@ sudo systemctl start message-relay
 
 只关闭网页可以继续。后台设备关机、休眠或断网时无法实时接收；重启只能尽力恢复扫描范围内的消息。全天候运行请选择长期在线的服务器。
 
+### 服务器部署需要域名或公网开放管理端口吗？
+
+按本文的 SSH 隧道方式，无需域名，也无需开放公网 8765。仅需按自己的 SSH 配置允许管理连接；管理页面通过 SSH 隧道访问。若另行改成公网网站，则需要单独配置认证与 HTTPS。
+
+### 服务器版本和电脑本地版本会同时发送吗？
+
+如果两边都运行同样的监听任务，可能重复发送。迁移后保持旧后台停止；不要再次双击旧目录的 `Start.cmd`，如已安装 Windows 登录后自动启动，也要移除对应快捷方式。同一 Telegram 会话不要在多台机器同时使用。
+
 ### 能监听别人发的消息吗？
 
 能。所选来源里别人和自己的消息都在范围内，不会自动监听未创建任务的其他会话。账号必须能访问来源，受保护内容会跳过。
@@ -470,6 +602,7 @@ frontend/src/                React / TypeScript 中文管理界面
 frontend/scripts/            浏览器集成测试和本机截图脚本
 tests/                       后端测试与隔离 UI 测试服务
 deploy/message-relay.service Linux systemd 服务示例
+docs/images/                 README 使用的模拟数据截图
 .github/workflows/ci.yml     Windows / Linux 后端测试与前端构建
 Start.cmd / Stop.cmd         Windows 启动 / 安全停止
 scripts/                    依赖更新与登录后自动启动
