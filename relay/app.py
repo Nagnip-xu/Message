@@ -110,7 +110,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         await telegram.close()
         await sender.close()
 
-    app = FastAPI(title="消息中继", version="1.0.1", lifespan=lifespan)
+    app = FastAPI(title="消息中继", version="1.1.0", lifespan=lifespan)
     app.state.store, app.state.telegram = store, telegram
 
     @app.middleware("http")
@@ -164,7 +164,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
 
     @app.get("/api/health")
     async def health():
-        return {"ok": True, "app": "telegram-feishu-relay", "version": "1.0.1"}
+        return {"ok": True, "app": "telegram-feishu-relay", "version": "1.1.0"}
 
     @app.get("/api/state")
     async def state():

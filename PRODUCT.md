@@ -20,7 +20,7 @@ Continuously receive messages accessible to the signed-in Telegram account, matc
 
 ## Operating Context
 
-Release 1.0.1 runs as a single background process on Windows or a Linux server. Each installation supplies its own Telegram application credentials, account login and Feishu group custom-bot Webhooks through the management interface. Private settings and account state are excluded from the source repository. Sources and forum topics are discovered from the signed-in account.
+Release 1.1.0 runs as a single background process on Windows or a Linux server. Each installation supplies its own Telegram application credentials, account login and Feishu group custom-bot Webhooks through the management interface. Private settings and account state are excluded from the source repository. Sources and forum topics are discovered from the signed-in account.
 
 ## Capabilities and Constraints
 

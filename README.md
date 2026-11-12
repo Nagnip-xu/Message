@@ -1,6 +1,8 @@
 # Message · Telegram → 飞书消息中继
 
-**正式版 1.0.1** · 中文可视化管理 · Windows 本地运行 · Linux 服务器常驻
+**正式版 1.1.0** · 中文可视化管理 · Windows 本地运行 · Linux 服务器常驻
+
+稳定回退基线：**[v1.1.0](https://github.com/Nagnip-xu/Message/releases/tag/v1.1.0)**。保留此 Git 标签和发布附件即可恢复对应代码与前端；账号、任务和历史数据另行私有备份。版本变化见 [CHANGELOG.md](CHANGELOG.md)。
 
 [![自动验证](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml)
 **[访问官网 →](https://nagnip-xu.github.io/Message/)** · [发布版本](https://github.com/Nagnip-xu/Message/releases) · [问题反馈](https://github.com/Nagnip-xu/Message/issues)
@@ -37,6 +39,7 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 - [电脑重启后查看服务器状态](#电脑重启后查看服务器状态)
 - [从本机迁移到服务器](#从本机迁移到服务器)
 - [更新与备份](#更新与备份)
+- [回退到 1.1.0](#回退到-110)
 - [常见问题](#常见问题)
 - [开发与验证](#开发与验证)
 - [官网维护与发布](#官网维护与发布)
@@ -327,7 +330,7 @@ sudo systemctl status message-relay --no-pager
 curl --fail http://127.0.0.1:8765/api/health
 ```
 
-已有同名用户时跳过 `useradd`，更新时无需重复创建。健康接口应返回 `"ok": true` 与 `"version": "1.0.1"`。
+已有同名用户时跳过 `useradd`，更新时无需重复创建。健康接口应返回 `"ok": true` 与 `"version": "1.1.0"`。
 
 服务使用程序目录 `/opt/Message`、Python `/opt/Message/.venv/bin/python` 和数据目录 `/var/lib/message-relay`（通过 `RELAY_DATA_DIR` 设置，首次由 systemd 创建）。开机自动运行，异常退出尝试重启，运行日志交给 journal。
 
@@ -513,6 +516,54 @@ sudo systemctl start message-relay
 
 恢复时停服务，备份当前数据，再将归档里的 `message-relay/` 恢复到 `/var/lib/`，设置所有权为 `message-relay:message-relay`，然后启动核对。
 
+## 回退到 1.1.0
+
+`v1.1.0` 固定本版本的代码，不随 `main` 后续更新移动。Release 提供源码归档、`message-frontend-v1.1.0.tar.gz` 已构建前端，以及 `SHA256SUMS.txt`。保留源码和前端归档，之后无需重新构建前端也能恢复此版本。GitHub 自动生成的源码 ZIP 不包含前端构建产物，需配合附件或自行构建。
+
+**代码回退和数据恢复是两件事。** 通常先保留最新账号、任务、队列及去重记录，只切回代码。未来版本如果改变数据库且不兼容，需要在停止后台后恢复对应私有备份；恢复旧数据可能重新扫描或转发备份之后的消息，应先核对飞书记录。恢复时不要同时运行两个使用同一会话的后台。
+
+回退前保存尚未提交的源码修改，并备份当前私有数据。以下 `git switch --detach` 会进入固定版本，属于正常状态。
+
+### Windows 回退
+
+在项目根目录执行：
+
+```powershell
+.\Stop.cmd
+# 备份整个 data 目录到项目外的私有位置
+git fetch origin --tags
+git switch --detach v1.1.0
+.\.venv\Scripts\python.exe -m pip install -r requirements.lock.txt
+```
+
+从上述 Release 下载 `message-frontend-v1.1.0.tar.gz`，保存到项目根目录后执行：
+
+```powershell
+python -m tarfile -e message-frontend-v1.1.0.tar.gz .
+.\Start.cmd
+```
+
+归档内包含 `frontend/dist/`；也可以改为 `npm --prefix frontend ci` 和 `npm --prefix frontend run build` 自行重建。检查侧栏为 **正式版 1.1.0**，再核对账号、任务和发送记录。
+
+### Linux 服务器回退
+
+先下载 Release 前端附件并上传到服务器 `/tmp/message-frontend-v1.1.0.tar.gz`，再 SSH 登录执行：
+
+```bash
+sudo systemctl stop message-relay
+# 先备份 /var/lib/message-relay，保留当前队列与会话
+sudo git -C /opt/Message fetch origin --tags
+sudo git -C /opt/Message switch --detach v1.1.0
+sudo /opt/Message/.venv/bin/python -m pip install -r /opt/Message/requirements.lock.txt
+sudo tar -xzf /tmp/message-frontend-v1.1.0.tar.gz -C /opt/Message
+sudo systemctl start message-relay
+curl --fail http://127.0.0.1:8765/api/health
+```
+
+健康接口应显示版本 `1.1.0`；通过 SSH 隧道进入页面，确认 Telegram 连接和任务状态。已配置的代理服务和 systemd 代理依赖不用随代码回退移除。若使用不同路径，请相应替换。
+
+回到后续最新版时，先停止并备份后台数据，再运行 `git switch main`、`git pull --ff-only`，按[更新与备份](#更新与备份)重新安装依赖和部署对应前端。
+
 ## 常见问题
 
 ### 网页关闭后还能监听吗？电脑关机呢？
@@ -537,7 +588,7 @@ sudo systemctl start message-relay
 
 ### 图片为什么没有出现在飞书？
 
-1.0.1 仅转发文字、图片/附件提示与原链接，不下载上传文件本体。Webhook 不提供图片上传所需的应用凭证；本版没有接入应用机器人的上传流程。
+1.1.0 仅转发文字、图片/附件提示与原链接，不下载上传文件本体。Webhook 不提供图片上传所需的应用凭证；本版没有接入应用机器人的上传流程。
 
 ### Telegram 连接超时或来源列表为空？
 

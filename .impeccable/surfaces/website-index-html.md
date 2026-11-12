@@ -12,7 +12,7 @@ Scope: website/index.html and its assets. Mode: Persuade.
 Audience: Chinese-speaking Telegram users who want to receive selected messages in Feishu without constantly checking channels.
 Visitor job: understand the relay, try an illustrative flow, inspect the actual interface, and choose Windows or server installation on GitHub.
 Primary action: open the public Nagnip-xu/Message repository or its installation guide.
-Proof: existing release 1.0.1 functionality, actual interface screenshots populated with explicitly synthetic data; no customer, speed, or uptime claims.
+Proof: existing release 1.1.0 functionality, actual interface screenshots populated with explicitly synthetic data; no customer, speed, or uptime claims.
 Constraints: separate static website, no dashboard changes or account access, no credentials; meaningful mobile and reduced-motion behavior. User approved the reviewed design and GitHub Pages publication on 2026-11-12.
 
 Direction: extend the established teal identity with a more expressive marketing surface. A narrative moves from repeatedly checking messages to having selected messages delivered. Use a large saturated teal field, oversized Chinese typography, pale green message sheets, and one sequential routing animation. Surface concept candidate 3, seed e8682c7f.
