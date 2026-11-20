@@ -15,6 +15,7 @@ from telethon import errors
 
 from .config import ROOT, Config
 from .feishu import Sender, validate_webhook
+from .heartbeat import Heartbeat
 from .store import Store
 from .telegram import TelegramService, error_text
 
@@ -36,6 +37,10 @@ class SettingsInput(BaseModel):
 
 class PhoneInput(BaseModel):
     phone: str
+
+
+class HeartbeatInput(BaseModel):
+    enabled: bool
 
 
 class VerifyInput(BaseModel):
@@ -99,7 +104,8 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         workers = []
         if start_workers:
             store.mark_inflight_uncertain()
-            workers = [asyncio.create_task(telegram.run()), asyncio.create_task(sender.run())]
+            workers = [asyncio.create_task(telegram.run()), asyncio.create_task(sender.run()),
+                       asyncio.create_task(Heartbeat(store, config, telegram).run())]
             store.log("消息中继服务已启动")
         yield
         for task in workers:
@@ -110,7 +116,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         await telegram.close()
         await sender.close()
 
-    app = FastAPI(title="消息中继", version="1.1.0", lifespan=lifespan)
+    app = FastAPI(title="消息中继", version="1.1.1", lifespan=lifespan)
     app.state.store, app.state.telegram = store, telegram
 
     @app.middleware("http")
@@ -164,7 +170,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
 
     @app.get("/api/health")
     async def health():
-        return {"ok": True, "app": "telegram-feishu-relay", "version": "1.1.0"}
+        return {"ok": True, "app": "telegram-feishu-relay", "version": "1.1.1"}
 
     @app.get("/api/state")
     async def state():
@@ -190,6 +196,12 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         config.save(**values)
         await telegram.reset()
         store.log("Telegram 连接配置已更新")
+        return config.public()
+
+    @app.put("/api/heartbeat")
+    async def heartbeat_settings(value: HeartbeatInput):
+        config.save(heartbeat_enabled=value.enabled)
+        store.log("每 4 小时运行状态提醒已" + ("启用" if value.enabled else "关闭"))
         return config.public()
 
     @app.post("/api/telegram/code")

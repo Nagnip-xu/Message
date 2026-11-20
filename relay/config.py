@@ -13,7 +13,7 @@ DATA.mkdir(parents=True, exist_ok=True)
 class Config:
     def __init__(self, path: Path | None = None):
         self.path = path or DATA / "settings.json"
-        self.values = {"api_id": 0, "api_hash": "", "proxy": "", "catchup_limit": 500}
+        self.values = {"api_id": 0, "api_hash": "", "proxy": "", "catchup_limit": 500, "heartbeat_enabled": True}
         if self.path.exists():
             self.values.update(json.loads(self.path.read_text(encoding="utf-8-sig")))
 
@@ -26,7 +26,8 @@ class Config:
 
     def public(self):
         return {"api_id": self.values["api_id"], "api_hash_configured": bool(self.values["api_hash"]),
-                "proxy": self.values["proxy"], "catchup_limit": self.values["catchup_limit"]}
+                "proxy": self.values["proxy"], "catchup_limit": self.values["catchup_limit"],
+                "heartbeat_enabled": self.values["heartbeat_enabled"], "heartbeat_interval_hours": 4}
 
     def telegram_proxy(self):
         value = self.values["proxy"].strip()

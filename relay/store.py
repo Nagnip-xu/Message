@@ -48,6 +48,8 @@ class Store:
                 CREATE INDEX IF NOT EXISTS deliveries_queue ON deliveries(status, next_attempt, id);
                 CREATE TABLE IF NOT EXISTS system_logs(
                   id INTEGER PRIMARY KEY, level TEXT NOT NULL, message TEXT NOT NULL, created_at REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS runtime_state(
+                  key TEXT PRIMARY KEY, value REAL NOT NULL);
             """)
             columns = {row[1] for row in db.execute("PRAGMA table_info(deliveries)")}
             if "sender_name" not in columns:
@@ -115,6 +117,24 @@ class Store:
             result = dict(row)
             result["attempts"] += 1
             return result
+
+    def enqueue_heartbeat(self, robot_id, body, *, now, interval=14400):
+        # Queue insertion and scheduling checkpoint commit together, including after restart.
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            robot = db.execute("SELECT enabled FROM robots WHERE id=?", (robot_id,)).fetchone()
+            if not robot or not robot[0]:
+                return False
+            key = f"heartbeat:{robot_id}"
+            previous = db.execute("SELECT value FROM runtime_state WHERE key=?", (key,)).fetchone()
+            if previous and now - previous[0] < interval:
+                return False
+            # Replace obsolete unsent snapshots instead of flooding the group after an outage.
+            db.execute("UPDATE deliveries SET status='cancelled',error='已由最新运行状态提醒替代' WHERE robot_id=? AND kind='heartbeat' AND status IN ('pending','retry')", (robot_id,))
+            db.execute("""INSERT INTO deliveries(robot_id,source,message_id,kind,body,original_at,event_at,received_at)
+                VALUES(?,'消息中继',?,'heartbeat',?,?,?,?)""", (robot_id, -int(now * 1000), body, now, now, now))
+            db.execute("INSERT INTO runtime_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, now))
+            return True
 
     def stats(self):
         now = time.time()

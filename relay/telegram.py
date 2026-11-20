@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import re
 import time
@@ -12,6 +13,9 @@ from telethon.tl import functions
 from .config import Config, DATA
 from .feishu import split_text
 from .store import Store
+
+HEALTH_TIMEOUT = 15
+HISTORY_TIMEOUT = 45
 
 
 def topic_id_for(message, is_forum=False):
@@ -62,6 +66,7 @@ class TelegramService:
         self.phone_code_hash = None
         self.last_event_at = None
         self.last_recovery_at = None
+        self.last_health_at = None
         self.running = True
         self.connection_lock = asyncio.Lock()
         self.recovery_lock = asyncio.Lock()
@@ -69,15 +74,18 @@ class TelegramService:
         self.dialog_cache = None
         self.protected_warned = set()
         self.recovery_warnings = {}
+        self.recovery_backlog = False
 
     def status(self):
-        connected = bool(self.client and self.client.is_connected())
+        transport_connected = bool(self.client and self.client.is_connected())
+        connected = bool(transport_connected and self.last_health_at and time.time() - self.last_health_at < 90)
         state = self.state
         if self.authorized:
-            state = "ready" if connected else "reconnecting"
+            state = "ready" if connected and state == "ready" else "reconnecting"
         return {"state": state, "connected": connected, "authorized": self.authorized,
                 "user": self.user, "last_error": self.last_error, "last_event_at": self.last_event_at,
-                "last_recovery_at": self.last_recovery_at, "recovery_warnings": list(self.recovery_warnings.values())}
+                "last_recovery_at": self.last_recovery_at, "last_health_at": self.last_health_at,
+                "recovery_warnings": list(self.recovery_warnings.values())}
 
     async def get_client(self):
         async with self.connection_lock:
@@ -87,7 +95,7 @@ class TelegramService:
             if self.client is None:
                 self.client = TelegramClient(DATA / "telegram", int(self.config.values["api_id"]),
                     self.config.values["api_hash"], proxy=self.config.telegram_proxy(),
-                    device_model="Message Relay", app_version="1.1.0", system_lang_code="zh-CN",
+                    device_model="Message Relay", app_version="1.1.1", system_lang_code="zh-CN",
                     connection_retries=1, request_retries=1, timeout=8,
                     flood_sleep_threshold=0, auto_reconnect=True, sequential_updates=True)
                 self.client.add_event_handler(self.on_new, events.NewMessage())
@@ -106,11 +114,12 @@ class TelegramService:
     async def reset(self):
         async with self.connection_lock:
             if self.client:
-                await self.client.disconnect()
+                await asyncio.wait_for(self.client.disconnect(), timeout=10)
                 self.client = None
             self.authorized, self.user, self.dialog_cache = False, None, None
             self.phone, self.phone_code_hash = None, None
             self.state, self.last_error = "connecting", ""
+            self.last_health_at, self.last_recovery_at = None, None
 
     async def send_code(self, phone):
         if self.authorized:
@@ -139,11 +148,18 @@ class TelegramService:
         return {"state": "ready"}
 
     async def mark_authorized(self):
-        me = await self.client.get_me()
+        me = await asyncio.wait_for(self.client.get_me(), timeout=20)
         self.authorized, self.state, self.last_error = True, "ready", ""
         self.user = {"id": me.id, "name": " ".join(filter(None, [me.first_name, me.last_name])), "username": me.username}
         self.phone, self.phone_code_hash = None, None
+        self.last_health_at = time.time()
         self.store.log("Telegram 账号已连接")
+
+    async def probe(self, client):
+        # is_connected() only describes the socket; an RPC verifies the actual route.
+        await asyncio.wait_for(client(functions.PingRequest(ping_id=int(time.time() * 1000))), timeout=HEALTH_TIMEOUT)
+        self.last_health_at = time.time()
+        self.state, self.last_error = "ready", ""
 
     async def logout(self):
         if self.client:
@@ -224,7 +240,7 @@ class TelegramService:
             if not tasks:
                 return
             self.last_event_at = time.time()
-            chat = await event.get_chat()
+            chat = await asyncio.wait_for(event.get_chat(), timeout=20)
             async with self.ingest_lock:
                 for task in tasks:
                     await self.ingest(task, event.message, chat, edited=edited)
@@ -256,7 +272,7 @@ class TelegramService:
         sender_name = (getattr(message, "post_author", None) or "").strip()
         if not sender_name:
             try:
-                sender = await message.get_sender()
+                sender = await asyncio.wait_for(message.get_sender(), timeout=5)
             except Exception:
                 sender = None
             if sender:
@@ -283,6 +299,7 @@ class TelegramService:
         if self.recovery_lock.locked():
             return
         async with self.recovery_lock:
+            self.recovery_backlog = False
             client = await self.require()
             tasks = self.store.all("SELECT * FROM tasks WHERE enabled=1 AND catch_up=1")
             grouped = {}
@@ -291,31 +308,47 @@ class TelegramService:
             for chat_id, chat_tasks in grouped.items():
                 try:
                     scan_started = time.time()
-                    chat = await client.get_entity(chat_id)
+                    chat = await asyncio.wait_for(client.get_entity(chat_id), timeout=20)
                     limit = self.config.values["catchup_limit"]
-                    messages = [m async for m in client.iter_messages(chat, limit=limit)]
-                    if not messages:
-                        continue
                     min_cursor = min(t["cursor"] for t in chat_tasks)
-                    if len(messages) >= limit and messages[-1].id > min_cursor and min_cursor:
-                        warning = f"{chat_tasks[0]['chat_title']} 的恢复窗口超过 {limit} 条，可能存在未恢复消息；请检查原群或提高补发扫描上限"
+                    async def read_new():
+                        return [m async for m in client.iter_messages(chat, min_id=min_cursor, reverse=True, limit=limit)]
+                    messages = await asyncio.wait_for(read_new(), timeout=HISTORY_TIMEOUT)
+                    self.last_health_at = time.time()
+                    if len(messages) >= limit:
+                        self.recovery_backlog = True
+                        warning = f"{chat_tasks[0]['chat_title']} 存在补发积压，正在按顺序分批恢复（每批最多 {limit} 条）"
                         if self.recovery_warnings.get(chat_id) != warning:
                             self.store.log(warning, "warning")
                         self.recovery_warnings[chat_id] = warning
                     else:
                         self.recovery_warnings.pop(chat_id, None)
+                    # Old messages may have been edited without producing a new ID.
+                    recent = []
+                    if any(t["edits"] for t in chat_tasks):
+                        async def read_recent():
+                            return [m async for m in client.iter_messages(chat, limit=limit)]
+                        recent = await asyncio.wait_for(read_recent(), timeout=HISTORY_TIMEOUT)
+                        self.last_health_at = time.time()
                     async with self.ingest_lock:
                         for task in chat_tasks:
-                            for message in reversed(messages):
+                            for message in messages:
                                 if not isinstance(message, types.Message):
                                     continue
                                 if message.id > task["cursor"]:
                                     await self.ingest(task, message, chat, recovered=True)
-                                elif message.edit_date and message.edit_date.timestamp() >= task["last_scan"] - 3:
+                            for message in reversed(recent):
+                                if isinstance(message, types.Message) and message.id <= task["cursor"] and message.edit_date and message.edit_date.timestamp() >= task["last_scan"] - 3:
                                     await self.ingest(task, message, chat, edited=True, recovered=True)
-                            self.store.execute("UPDATE tasks SET cursor=MAX(cursor,?),last_scan=? WHERE id=?", (messages[0].id, scan_started, task["id"]))
+                            cursor = max((m.id for m in messages), default=task["cursor"])
+                            self.store.execute("UPDATE tasks SET cursor=MAX(cursor,?),last_scan=? WHERE id=?", (cursor, scan_started, task["id"]))
                 except Exception as exc:
-                    self.store.log(f"{chat_tasks[0]['chat_title']} 补发检查失败：{error_text(exc)}", "warning")
+                    warning = f"{chat_tasks[0]['chat_title']} 补发检查失败：{error_text(exc)}"
+                    if self.recovery_warnings.get(chat_id) != warning:
+                        self.store.log(warning, "warning")
+                    self.recovery_warnings[chat_id] = warning
+                    if isinstance(exc, (TimeoutError, ConnectionError, OSError)):
+                        raise
             self.last_recovery_at = time.time()
 
     async def run(self):
@@ -327,13 +360,14 @@ class TelegramService:
                     continue
                 client = await self.get_client()
                 if not self.authorized:
-                    if await client.is_user_authorized():
+                    if await asyncio.wait_for(client.is_user_authorized(), timeout=20):
                         await self.mark_authorized()
                     elif self.state not in {"code_sent", "password_required"}:
                         self.state, self.last_error = "login_required", ""
                 if self.authorized:
-                    self.last_error = ""
-                    if self.last_recovery_at is None or time.time() - self.last_recovery_at > 60:
+                    if self.last_health_at is None or time.time() - self.last_health_at >= 30:
+                        await self.probe(client)
+                    if self.recovery_backlog or self.last_recovery_at is None or time.time() - self.last_recovery_at > 60:
                         await self.recover()
             except asyncio.CancelledError:
                 raise
@@ -342,6 +376,15 @@ class TelegramService:
                 if message != self.last_error:
                     self.store.log(message, "warning")
                 self.last_error, self.state = message, "offline"
+                if not isinstance(exc, errors.FloodWaitError):
+                    # Discard Telethon's stalled RPC/reconnection state, retaining the session on disk.
+                    async with self.connection_lock:
+                        old_client, self.client = self.client, None
+                        self.authorized = False
+                        self.last_health_at, self.last_recovery_at = None, None
+                        if old_client:
+                            with contextlib.suppress(Exception):
+                                await asyncio.wait_for(old_client.disconnect(), timeout=10)
                 if isinstance(exc, (errors.AuthKeyUnregisteredError, errors.SessionRevokedError)):
                     self.authorized = False
                 if isinstance(exc, errors.FloodWaitError):
