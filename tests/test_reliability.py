@@ -10,7 +10,7 @@ from telethon import types
 
 from relay.config import Config
 from relay.feishu import Sender, payload_for
-from relay.heartbeat import Heartbeat, INTERVAL
+from relay.heartbeat import Heartbeat, INTERVAL, slot_for
 from relay.store import Store
 from relay.telegram import TelegramService
 from tests.test_relay import client, make_route, queue
@@ -27,7 +27,7 @@ def online(now):
 
 
 def test_heartbeat_without_messages_is_durable_and_does_not_repeat_after_restart(store, tmp_path):
-    now = time.time()
+    now = slot_for(time.time())
     make_route(store)
     config = Config(tmp_path / "settings.json")
     assert Heartbeat(store, config, online(now)).process_once(now) == 1
@@ -41,7 +41,7 @@ def test_heartbeat_without_messages_is_durable_and_does_not_repeat_after_restart
 
 
 def test_heartbeat_continues_while_telegram_is_unhealthy_and_ignores_disabled_robots(store, tmp_path):
-    now = time.time()
+    now = slot_for(time.time())
     first = make_route(store)
     second = make_route(store)
     store.execute("UPDATE robots SET enabled=0 WHERE id=?", (second["robot_id"],))
@@ -61,7 +61,7 @@ def test_heartbeat_is_not_blocked_by_uncertain_robot_test_and_uses_real_sender(s
 
     async def run():
         task = make_route(store)
-        now = time.time()
+        now = slot_for(time.time())
         store.execute("""INSERT INTO deliveries(robot_id,source,kind,body,original_at,event_at,received_at,status)
                         VALUES(?,'test','test','unknown',?,?,?,'uncertain')""", (task["robot_id"], now, now, now))
         Heartbeat(store, Config(tmp_path / "settings.json"), online(now)).process_once(now)
@@ -80,7 +80,7 @@ def test_heartbeat_is_not_blocked_by_uncertain_robot_test_and_uses_real_sender(s
 
 
 def test_heartbeat_counts_messages_and_renders_snapshot_time(store, tmp_path):
-    now = time.time()
+    now = slot_for(time.time())
     task = make_route(store)
     queue(store, task)
     store.execute("UPDATE deliveries SET status='sent',sent_at=?", (now - 10,))
@@ -94,6 +94,48 @@ def test_heartbeat_counts_messages_and_renders_snapshot_time(store, tmp_path):
 def test_heartbeat_settings_does_not_reset_telegram(client):
     assert client.put("/api/heartbeat", json={"enabled": False}).status_code == 200
     assert client.get("/api/state").json()["settings"]["heartbeat_enabled"] is False
+
+
+@pytest.mark.parametrize("hour", [0, 4, 8, 12, 16, 20])
+def test_fixed_heartbeat_all_daily_boundaries_and_midnight(store, tmp_path, hour):
+    from zoneinfo import ZoneInfo
+    now = datetime(2026, 11, 22, hour, tzinfo=ZoneInfo("Asia/Shanghai")).timestamp()
+    assert slot_for(now + 14399) == now
+    assert slot_for(now + INTERVAL) == now + INTERVAL
+    make_route(store)
+    config = Config(tmp_path / "settings.json")
+    service = Heartbeat(store, config, online(now))
+    assert service.process_once(now - 1) == 0
+    assert service.process_once(now) == 1
+    assert Heartbeat(Store(store.path), config, online(now)).process_once(now + 20) == 0
+    assert service.process_once(now + INTERVAL) == 1
+
+
+def test_fixed_schedule_ignores_legacy_rolling_times_and_waits_after_restart(store, tmp_path):
+    now = slot_for(time.time())
+    first, second = make_route(store), make_route(store)
+    config = Config(tmp_path / "settings.json")
+    store.execute("INSERT INTO runtime_state VALUES(?,?)", (f"heartbeat:{first['robot_id']}", now - 100))
+    store.execute("INSERT INTO runtime_state VALUES(?,?)", (f"heartbeat:{second['robot_id']}", now - 7200))
+    assert Heartbeat(store, config, online(now)).process_once(now + 3600) == 0
+    assert not store.all("SELECT * FROM deliveries")
+    assert Heartbeat(Store(store.path), config, online(now)).process_once(now + INTERVAL + 5) == 2
+    assert len(store.all("SELECT * FROM deliveries")) == 2
+    # Multiple missed times produce no off-schedule catch-up reports.
+    assert Heartbeat(Store(store.path), config, online(now)).process_once(now + INTERVAL * 4 + 100) == 0
+    assert Heartbeat(Store(store.path), config, online(now)).process_once(now + INTERVAL * 5) == 2
+
+
+def test_fixed_schedule_reenable_waits_until_next_boundary(store, tmp_path):
+    now = slot_for(time.time())
+    make_route(store)
+    config = Config(tmp_path / "settings.json")
+    config.save(heartbeat_enabled=False)
+    service = Heartbeat(store, config, online(now))
+    assert service.process_once(now) == 0
+    config.save(heartbeat_enabled=True)
+    assert service.process_once(now + 120) == 0
+    assert service.process_once(now + INTERVAL + 30) == 1
 
 
 def test_connected_socket_with_stale_health_is_not_reported_ready(store, tmp_path):

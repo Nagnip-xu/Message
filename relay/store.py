@@ -122,22 +122,26 @@ class Store:
             result["attempts"] += 1
             return result
 
-    def enqueue_heartbeat(self, robot_id, body, *, now, interval=14400):
+    def enqueue_heartbeat(self, robot_id, body, *, now, scheduled_at):
         # Queue insertion and scheduling checkpoint commit together, including after restart.
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
             robot = db.execute("SELECT enabled FROM robots WHERE id=?", (robot_id,)).fetchone()
             if not robot or not robot[0]:
                 return False
-            key = f"heartbeat:{robot_id}"
+            key = f"heartbeat-fixed:{robot_id}"
             previous = db.execute("SELECT value FROM runtime_state WHERE key=?", (key,)).fetchone()
-            if previous and now - previous[0] < interval:
+            if now < scheduled_at or (previous and previous[0] >= scheduled_at):
                 return False
             # Replace obsolete unsent snapshots instead of flooding the group after an outage.
             db.execute("UPDATE deliveries SET status='cancelled',error='已由最新运行状态提醒替代' WHERE robot_id=? AND kind='heartbeat' AND status IN ('pending','retry')", (robot_id,))
+            db.execute("INSERT INTO runtime_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, scheduled_at))
+            # Starting/re-enabling between scheduled times must not emit an extra report.
+            # Allow one minute for normal scheduler jitter; missed slots are not replayed.
+            if now - scheduled_at >= 60:
+                return False
             db.execute("""INSERT INTO deliveries(robot_id,source,message_id,kind,body,original_at,event_at,received_at)
                 VALUES(?,'消息中继',?,'heartbeat',?,?,?,?)""", (robot_id, -int(now * 1000), body, now, now, now))
-            db.execute("INSERT INTO runtime_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, now))
             return True
 
     def stats(self):

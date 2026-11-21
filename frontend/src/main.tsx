@@ -109,7 +109,7 @@ function App() {
       <a className="brand" href="#" onClick={e => { e.preventDefault(); setPage('overview'); setMenuOpen(false); }}><span className="brand-symbol"><ArrowDownLeft size={22}/><ArrowUpRight size={22}/></span><span>消息中继<small>Telegram → 飞书</small></span></a>
       <div className="nav-label">工作空间</div>
       <nav aria-label="主导航">{nav.map(({ page: target, label, icon: Icon }, i) => <React.Fragment key={target}>{i === 2 && <div className="nav-label connection-nav">连接与配置</div>}<button className={`nav-item ${page === target ? 'active' : ''}`} aria-current={page === target ? 'page' : undefined} onClick={() => { setPage(target); setMenuOpen(false); }}><Icon size={19}/><span>{label}</span>{target === 'history' && !!state?.stats.failed && <span className="nav-count">{state.stats.failed}</span>}</button></React.Fragment>)}</nav>
-      <div className="sidebar-bottom"><div className="local-indicator"><span className={`status-dot ${connectionError ? 'red' : 'green'}`}/>{connectionError ? '后台连接已中断' : state ? '本机后台运行中' : '正在连接本机服务'}</div><p>关闭此页面，后台仍持续监听。<br/>电脑休眠或关机将停止接收。</p><span className="version">正式版 1.1.2 <ShieldCheck size={13}/> 本机管理</span></div>
+      <div className="sidebar-bottom"><div className="local-indicator"><span className={`status-dot ${connectionError ? 'red' : 'green'}`}/>{connectionError ? '后台连接已中断' : state ? '本机后台运行中' : '正在连接本机服务'}</div><p>关闭此页面，后台仍持续监听。<br/>电脑休眠或关机将停止接收。</p><span className="version">正式版 1.1.3 <ShieldCheck size={13}/> 本机管理</span></div>
     </aside>
     {menuOpen && <button className="mobile-scrim" aria-label="关闭导航" onClick={() => setMenuOpen(false)}/>}
     <div className="main-shell"><header className="topbar"><div><button ref={menuTriggerRef} className="icon-button mobile-menu" aria-label="打开导航" aria-controls="primary-sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}><Menu size={21}/></button><span>工作空间</span><ChevronRight size={14}/><strong>{nav.find(n => n.page === page)?.label}</strong></div><span className="local-address"><span className={`status-dot ${connectionError ? 'red' : state ? 'green' : 'gray'}`}/>{connectionError ? '服务已断开' : state ? '本机服务在线' : '正在连接服务'}<span className="address-value"> · {window.location.host}</span><span className="topbar-divider"/>UTC+8</span></header>
@@ -185,11 +185,11 @@ function HeartbeatSettings({ state, reload, notify }: { state: State; reload: ()
     try {
       await api('/heartbeat', 'PUT', { enabled: !state.settings.heartbeat_enabled });
       await reload();
-      notify(state.settings.heartbeat_enabled ? '运行状态提醒已关闭' : '每 4 小时运行状态提醒已开启');
+      notify(state.settings.heartbeat_enabled ? '运行状态提醒已关闭' : '固定时间运行状态提醒已开启');
     } catch (e) { notify((e as Error).message, true); }
     finally { setBusy(false); }
   };
-  return <div className="form-stack"><div className="form-divider"/><h3>定时运行状态提醒</h3><div className="switch-row"><div><strong>每 4 小时发送到飞书</strong><p>没有新消息也发送，包含在线检查、推送数量和异常记录。{busy && '正在保存…'}</p></div><Toggle checked={state.settings.heartbeat_enabled} label="每 4 小时运行状态提醒" onChange={() => void toggle()}/></div><p className="form-bottom-note">发送到所有已启用的机器人，重启保留提醒进度。首次启用后约 30 秒检查是否到期；后台或服务器停止运行时无法发送。</p></div>;
+  return <div className="form-stack"><div className="form-divider"/><h3>定时运行状态提醒</h3><div className="switch-row"><div><strong>每天固定时间发送到飞书</strong><p>北京时间 00:00、04:00、08:00、12:00、16:00、20:00，没有新消息也发送。{busy && '正在保存…'}</p></div><Toggle checked={state.settings.heartbeat_enabled} label="每 4 小时运行状态提醒" onChange={() => void toggle()}/></div><p className="form-bottom-note">所有已启用的机器人使用相同时间表，重启不改变时间。错过的时段不补发；实际送达受队列及网络影响。后台或服务器停止时无法发送。</p></div>;
 }
 
 function History({ notify, state }: { notify: Notify; state: State }) {
