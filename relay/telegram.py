@@ -95,7 +95,7 @@ class TelegramService:
             if self.client is None:
                 self.client = TelegramClient(DATA / "telegram", int(self.config.values["api_id"]),
                     self.config.values["api_hash"], proxy=self.config.telegram_proxy(),
-                    device_model="Message Relay", app_version="1.1.1", system_lang_code="zh-CN",
+                    device_model="Message Relay", app_version="1.1.2", system_lang_code="zh-CN",
                     connection_retries=1, request_retries=1, timeout=8,
                     flood_sleep_threshold=0, auto_reconnect=True, sequential_updates=True)
                 self.client.add_event_handler(self.on_new, events.NewMessage())
@@ -226,6 +226,53 @@ class TelegramService:
         cursor = latest[0].id if latest else 0
         return {"chat_title": entity.title, "topic_title": topic_title, "cursor": cursor}
 
+    async def resolve_senders(self, value):
+        entries = list(dict.fromkeys(part.strip() for part in re.split(r"[,，\s]+", value) if part.strip()))
+        if len(entries) > 20:
+            raise ValueError("每个任务最多指定 20 个发送人")
+        if not entries:
+            return []
+        client = await self.require()
+        resolved = {}
+        for entry in entries:
+            if re.fullmatch(r"[1-9]\d{0,18}", entry):
+                target = int(entry)
+            elif re.fullmatch(r"@[A-Za-z][A-Za-z0-9_]{3,31}", entry):
+                target = entry
+            else:
+                raise ValueError("发送人请填写 @用户名 或正整数用户 ID，多个用逗号分隔；不支持昵称或手机号")
+            try:
+                user = await asyncio.wait_for(client.get_entity(target), timeout=20)
+            except (ValueError, errors.UsernameInvalidError, errors.UsernameNotOccupiedError):
+                raise ValueError(f"无法识别发送人 {entry}，请检查 @用户名，或先刷新最近发言人再选择用户 ID") from None
+            if not isinstance(user, types.User) or getattr(user, "deleted", False):
+                raise ValueError(f"{entry} 不是可用的 Telegram 用户；不能指定群组或频道")
+            name = utils.get_display_name(user) or user.username or str(user.id)
+            resolved[user.id] = {"id": user.id, "name": name, "username": user.username}
+        return list(resolved.values())
+
+    async def recent_senders(self, chat_id, topic_id=0):
+        client = await self.require()
+        async def read():
+            chat = await client.get_entity(chat_id)
+            if not isinstance(chat, (types.Chat, types.Channel)):
+                raise ValueError("仅支持群组和频道")
+            messages = [m async for m in client.iter_messages(chat, limit=100)]
+            users = {}
+            for message in messages:
+                if not isinstance(message, types.Message) or not isinstance(message.from_id, types.PeerUser):
+                    continue
+                if topic_id and topic_id_for(message, bool(getattr(chat, "forum", False))) != topic_id:
+                    continue
+                if message.from_id.user_id in users:
+                    continue
+                user = message.sender
+                if not isinstance(user, types.User):
+                    continue
+                users[user.id] = {"id": user.id, "name": utils.get_display_name(user) or str(user.id), "username": user.username}
+            return list(users.values())
+        return await asyncio.wait_for(read(), timeout=30)
+
     async def on_new(self, event):
         await self.on_event(event, False)
 
@@ -257,6 +304,11 @@ class TelegramService:
             return 0
         if task["topic_id"] and topic_id_for(message, bool(getattr(chat, "forum", False))) != task["topic_id"]:
             return 0
+        sender_ids = task.get("sender_ids", "")
+        if sender_ids:
+            # Match the actual sending account, never display names or forwarded authors.
+            if not isinstance(message.from_id, types.PeerUser) or str(message.from_id.user_id) not in sender_ids.split(","):
+                return 0
         original_at = message.date.timestamp()
         edit_at = message.edit_date.timestamp() if message.edit_date else 0
         event_at = edit_at if edited else original_at

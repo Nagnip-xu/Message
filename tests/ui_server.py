@@ -34,6 +34,21 @@ class FixtureTelegram(TelegramService):
     async def resolve_source(self, chat_id, topic_id):
         return {"chat_title": "集成测试群（测试数据）", "topic_title": "交易信号（测试数据）" if topic_id else "", "cursor": 100}
 
+    async def recent_senders(self, chat_id, topic_id=0):
+        return [{"id": 77, "name": "目标成员（测试数据）", "username": "target_test"},
+                {"id": 99, "name": "其他成员（测试数据）", "username": None}]
+
+    async def resolve_senders(self, value):
+        result = []
+        for entry in value.replace(',', ' ').split():
+            if entry in ('77', '@target_test'):
+                result.append({"id": 77, "name": "目标成员（测试数据）", "username": "target_test"})
+            elif entry == '99':
+                result.append({"id": 99, "name": "其他成员（测试数据）", "username": None})
+            else:
+                raise ValueError("无法识别测试发送人")
+        return result
+
     async def run(self):
         await asyncio.Event().wait()
 
@@ -63,7 +78,7 @@ async def reset_fixture():
 async def ingest_fixture():
     from types import SimpleNamespace
     chat = SimpleNamespace(forum=True, noforwards=False, username=None)
-    message = types.Message(id=101, peer_id=types.PeerChannel(123456), date=datetime.now(timezone.utc), message="测试信号 ETH 开仓（模拟数据）", reply_to=types.MessageReplyHeader(forum_topic=True, reply_to_msg_id=88))
+    message = types.Message(id=101, peer_id=types.PeerChannel(123456), from_id=types.PeerUser(77), date=datetime.now(timezone.utc), message="测试信号 ETH 开仓（模拟数据）", reply_to=types.MessageReplyHeader(forum_topic=True, reply_to_msg_id=88))
     count = 0
     for task in store.all("SELECT * FROM tasks WHERE enabled=1"):
         count += await telegram.ingest(task, message, chat)

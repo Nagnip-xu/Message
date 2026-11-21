@@ -54,6 +54,10 @@ class Store:
             columns = {row[1] for row in db.execute("PRAGMA table_info(deliveries)")}
             if "sender_name" not in columns:
                 db.execute("ALTER TABLE deliveries ADD COLUMN sender_name TEXT NOT NULL DEFAULT ''")
+            task_columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
+            for name in ("sender_ids", "sender_names"):
+                if name not in task_columns:
+                    db.execute(f"ALTER TABLE tasks ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
 
     def mark_inflight_uncertain(self):
         self.execute("UPDATE deliveries SET status='uncertain',error='程序关闭时请求结果未知。请先在飞书群核对，避免重复通知。' WHERE status='sending'")

@@ -77,6 +77,7 @@ class TaskInput(BaseModel):
     exclude_words: str = Field(default="", max_length=1000)
     stale_minutes: int = Field(default=5, ge=1, le=1440)
     catch_up: bool = True
+    sender_filter: str = Field(default="", max_length=1000)
 
 
 class TaskUpdate(BaseModel):
@@ -86,6 +87,11 @@ class TaskUpdate(BaseModel):
     exclude_words: str = Field(default="", max_length=1000)
     stale_minutes: int = Field(default=5, ge=1, le=1440)
     catch_up: bool = True
+    sender_filter: str | None = Field(default=None, max_length=1000)
+
+
+class SenderFilterInput(BaseModel):
+    sender_filter: str = Field(default="", max_length=1000)
 
 
 def public_robot(robot):
@@ -116,7 +122,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         await telegram.close()
         await sender.close()
 
-    app = FastAPI(title="消息中继", version="1.1.1", lifespan=lifespan)
+    app = FastAPI(title="消息中继", version="1.1.2", lifespan=lifespan)
     app.state.store, app.state.telegram = store, telegram
 
     @app.middleware("http")
@@ -170,7 +176,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
 
     @app.get("/api/health")
     async def health():
-        return {"ok": True, "app": "telegram-feishu-relay", "version": "1.1.1"}
+        return {"ok": True, "app": "telegram-feishu-relay", "version": "1.1.2"}
 
     @app.get("/api/state")
     async def state():
@@ -230,6 +236,14 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
     async def topics(chat_id: int, q: str = ""):
         return await telegram.topics(chat_id, q)
 
+    @app.get("/api/telegram/senders/{chat_id}")
+    async def recent_senders(chat_id: int, topic_id: int = Query(default=0, ge=0)):
+        return await telegram.recent_senders(chat_id, topic_id)
+
+    @app.post("/api/telegram/resolve-senders")
+    async def resolve_senders(value: SenderFilterInput):
+        return await telegram.resolve_senders(value.sender_filter)
+
     @app.post("/api/robots")
     async def create_robot(value: RobotInput):
         robot_id = store.execute("INSERT INTO robots(name,webhook,secret,enabled,created_at) VALUES(?,?,?,?,?)",
@@ -269,21 +283,27 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
     @app.post("/api/tasks")
     async def create_task(value: TaskInput):
         robot_by_id(value.robot_id)
+        senders = await telegram.resolve_senders(value.sender_filter) if value.sender_filter.strip() else []
         source = await telegram.resolve_source(value.chat_id, value.topic_id)
         now = int(time.time())
         task_id = store.execute("""INSERT INTO tasks(name,chat_id,chat_title,topic_id,topic_title,robot_id,
-            edits,include_words,exclude_words,stale_minutes,catch_up,enabled_since,cursor,last_scan,created_at)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
+            edits,include_words,exclude_words,stale_minutes,catch_up,enabled_since,cursor,last_scan,created_at,sender_ids,sender_names)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
             value.robot_id, value.edits, value.include_words, value.exclude_words, value.stale_minutes,
-            value.catch_up, now, source["cursor"], now, now))
+            value.catch_up, now, source["cursor"], now, now,
+            ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders)))
         store.log(f"监听任务已启用：{value.name.strip()}，从现在开始接收新消息")
         return task_by_id(task_id)
 
     @app.put("/api/tasks/{task_id}")
     async def update_task(task_id: int, value: TaskUpdate):
-        task_by_id(task_id)
-        store.execute("UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=? WHERE id=?",
-                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, task_id))
+        old = task_by_id(task_id)
+        sender_ids, sender_names = old["sender_ids"], old["sender_names"]
+        if value.sender_filter is not None and value.sender_filter.strip() != sender_ids:
+            senders = await telegram.resolve_senders(value.sender_filter) if value.sender_filter.strip() else []
+            sender_ids, sender_names = ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders)
+        store.execute("UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=?,sender_ids=?,sender_names=? WHERE id=?",
+                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, sender_ids, sender_names, task_id))
         return task_by_id(task_id)
 
     @app.post("/api/tasks/{task_id}/toggle")
