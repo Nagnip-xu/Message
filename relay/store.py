@@ -8,6 +8,8 @@ from pathlib import Path
 
 from .config import DATA
 
+DISPLAY_FIELDS = ("show_title", "show_sender", "show_original_time", "show_forward_time", "show_link")
+
 
 class Store:
     def __init__(self, path: Path | None = None):
@@ -58,6 +60,9 @@ class Store:
             for name in ("sender_ids", "sender_names"):
                 if name not in task_columns:
                     db.execute(f"ALTER TABLE tasks ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
+            for name in DISPLAY_FIELDS:
+                if name not in task_columns:
+                    db.execute(f"ALTER TABLE tasks ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
 
     def mark_inflight_uncertain(self):
         self.execute("UPDATE deliveries SET status='uncertain',error='程序关闭时请求结果未知。请先在飞书群核对，避免重复通知。' WHERE status='sending'")
@@ -107,7 +112,8 @@ class Store:
     def claim(self):
         with self.db() as db:
             db.execute("BEGIN IMMEDIATE")
-            row = db.execute("""SELECT d.*,r.webhook,r.secret,r.name AS robot_name FROM deliveries d
+            display_columns = ",".join(f"COALESCE(t.{name},0) AS {name}" for name in DISPLAY_FIELDS)
+            row = db.execute(f"""SELECT d.*,r.webhook,r.secret,r.name AS robot_name,{display_columns} FROM deliveries d
                 JOIN robots r ON r.id=d.robot_id LEFT JOIN tasks t ON t.id=d.task_id
                 WHERE d.status IN ('pending','retry') AND d.next_attempt<=? AND r.enabled=1
                   AND (d.task_id IS NULL OR t.enabled=1)

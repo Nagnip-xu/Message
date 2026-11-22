@@ -34,7 +34,7 @@ def test_heartbeat_without_messages_is_durable_and_does_not_repeat_after_restart
     assert Heartbeat(Store(store.path), config, online(now)).process_once(now + 100) == 0
     first = store.one("SELECT * FROM deliveries")
     assert first["kind"] == "heartbeat" and "运行正常" in first["body"]
-    assert "成功推送：0 条" in first["body"]
+    assert "过去 24 小时已推送 0 条" in first["body"]
     assert Heartbeat(store, config, online(now + INTERVAL)).process_once(now + INTERVAL) == 1
     assert store.one("SELECT status FROM deliveries WHERE id=?", (first["id"],))["status"] == "cancelled"
     assert store.one("SELECT COUNT(*) AS n FROM deliveries WHERE status='pending'")["n"] == 1
@@ -74,12 +74,16 @@ def test_heartbeat_is_not_blocked_by_uncertain_robot_test_and_uses_real_sender(s
         sender.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
         assert await sender.process_once()
         assert store.one("SELECT status FROM deliveries WHERE kind='heartbeat'")["status"] == "sent"
-        assert len(captured) == 1 and "运行状态" in captured[0].decode()
+        import json
+        assert len(captured) == 1
+        payload = json.loads(captured[0])
+        assert payload["msg_type"] == "text"
+        assert "每日状态" in payload["content"]["text"]
         await sender.close()
     asyncio.run(run())
 
 
-def test_heartbeat_counts_messages_and_renders_snapshot_time(store, tmp_path):
+def test_heartbeat_counts_messages_and_renders_only_two_short_sentences(store, tmp_path):
     now = slot_for(time.time())
     task = make_route(store)
     queue(store, task)
@@ -87,8 +91,7 @@ def test_heartbeat_counts_messages_and_renders_snapshot_time(store, tmp_path):
     Heartbeat(store, Config(tmp_path / "settings.json"), online(now)).process_once(now)
     row = store.one("SELECT * FROM deliveries WHERE kind='heartbeat'")
     payload = payload_for(row, now=now)
-    text = str(payload)
-    assert "成功推送：1 条" in text and "检查时间" in text and "原消息：" not in text
+    assert payload == {"msg_type": "text", "content": {"text": "每日状态：运行正常，正在监听 1 个任务。\n过去 24 小时已推送 1 条消息。"}}
 
 
 def test_heartbeat_settings_does_not_reset_telegram(client):
@@ -96,11 +99,13 @@ def test_heartbeat_settings_does_not_reset_telegram(client):
     assert client.get("/api/state").json()["settings"]["heartbeat_enabled"] is False
 
 
-@pytest.mark.parametrize("hour", [0, 4, 8, 12, 16, 20])
-def test_fixed_heartbeat_all_daily_boundaries_and_midnight(store, tmp_path, hour):
+@pytest.mark.parametrize("hour", [4, 8, 12, 16, 20, 23])
+def test_daily_heartbeat_skips_all_other_hours_and_sends_at_midnight(store, tmp_path, hour):
     from zoneinfo import ZoneInfo
-    now = datetime(2026, 11, 22, hour, tzinfo=ZoneInfo("Asia/Shanghai")).timestamp()
-    assert slot_for(now + 14399) == now
+    now = datetime(2026, 11, 22, tzinfo=ZoneInfo("Asia/Shanghai")).timestamp()
+    assert INTERVAL == 86400
+    assert slot_for(now + hour * 3600) == now
+    assert slot_for(now + 86399) == now
     assert slot_for(now + INTERVAL) == now + INTERVAL
     make_route(store)
     config = Config(tmp_path / "settings.json")
@@ -108,6 +113,7 @@ def test_fixed_heartbeat_all_daily_boundaries_and_midnight(store, tmp_path, hour
     assert service.process_once(now - 1) == 0
     assert service.process_once(now) == 1
     assert Heartbeat(Store(store.path), config, online(now)).process_once(now + 20) == 0
+    assert service.process_once(now + hour * 3600) == 0
     assert service.process_once(now + INTERVAL) == 1
 
 
@@ -136,6 +142,36 @@ def test_fixed_schedule_reenable_waits_until_next_boundary(store, tmp_path):
     config.save(heartbeat_enabled=True)
     assert service.process_once(now + 120) == 0
     assert service.process_once(now + INTERVAL + 30) == 1
+
+
+def test_upgrading_four_hour_checkpoint_waits_for_next_beijing_midnight(store, tmp_path):
+    now = slot_for(time.time())
+    task = make_route(store)
+    store.execute("INSERT INTO runtime_state VALUES(?,?)", (f"heartbeat-fixed:{task['robot_id']}", now + 20 * 3600))
+    service = Heartbeat(store, Config(tmp_path / "settings.json"), online(now))
+    assert service.process_once(now + 21 * 3600) == 0
+    assert service.process_once(now + INTERVAL) == 1
+    assert service.process_once(now + INTERVAL + 10) == 0
+
+
+def test_daily_report_counts_full_day_and_summarizes_errors_without_dumping_details(store, tmp_path):
+    now = slot_for(time.time())
+    task = make_route(store)
+    queue(store, task, message=1)
+    queue(store, task, message=2)
+    queue(store, task, message=3)
+    store.execute("UPDATE deliveries SET status='sent',sent_at=? WHERE message_id=1", (now - 22 * 3600,))
+    store.execute("UPDATE deliveries SET status='sent',sent_at=? WHERE message_id=2", (now - INTERVAL - 1,))
+    store.execute("UPDATE deliveries SET status='failed' WHERE message_id=3")
+    tg = SimpleNamespace(status=lambda: {"connected": False, "authorized": True, "state": "offline",
+        "last_error": "private error detail " * 100, "recovery_warnings": ["long warning " * 100]})
+    Heartbeat(store, Config(tmp_path / "settings.json"), tg).process_once(now)
+    row = store.one("SELECT * FROM deliveries WHERE kind='heartbeat'")
+    body = payload_for(row, now=now)["content"]["text"]
+    assert "需要检查" in body and "未通过在线检查" in body and "1 条失败" in body
+    assert "已推送 1 条" in body
+    assert len(body.splitlines()) == 2 and len(body) < 150
+    assert "private error" not in body and "long warning" not in body
 
 
 def test_connected_socket_with_stale_health_is_not_reported_ready(store, tmp_path):

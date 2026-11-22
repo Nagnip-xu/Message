@@ -159,7 +159,7 @@ def test_network_timeout_retains_queue_without_exposing_webhook(store):
 
 def test_stale_label_uses_edit_time_not_original_time():
     now = time.time()
-    job = dict(id=1, kind="edit", source="来源", body="止损已更新", message_id=20, parts=1, part=1, link="", original_at=now - 86400, event_at=now, stale_minutes=5)
+    job = dict(id=1, kind="edit", source="来源", body="止损已更新", message_id=20, parts=1, part=1, link="", original_at=now - 86400, event_at=now, stale_minutes=5, show_title=True)
     payload = payload_for(job, "secret", now)
     title = payload["content"]["post"]["zh_cn"]["title"]
     assert "延迟" not in title
@@ -170,7 +170,8 @@ def test_stale_label_uses_edit_time_not_original_time():
 def test_post_separates_metadata_and_omits_internal_ids():
     now = time.time()
     job = dict(id=7, kind="new", source="来源", sender_name="测试发送者", body="信号正文", message_id=1727479, parts=1, part=1,
-               link="https://t.me/c/123/1727479", original_at=now, event_at=now, stale_minutes=5)
+               link="https://t.me/c/123/1727479", original_at=now, event_at=now, stale_minutes=5,
+               show_title=True, show_sender=True, show_original_time=True, show_forward_time=True, show_link=True)
     rows = payload_for(job, now=now)["content"]["post"]["zh_cn"]["content"]
     assert rows[0] == [{"tag": "text", "text": "信号正文"}]
     assert rows[1] == [{"tag": "text", "text": " "}]
@@ -185,6 +186,7 @@ def test_post_separates_metadata_and_omits_internal_ids():
 def test_post_payload_respects_size_budget():
     now = time.time()
     job = dict(id=1, kind="new", source="来源" * 100, body=split_text('"\\开仓🚀' * 5000)[0], message_id=1, parts=10, part=1, link="https://t.me/c/123/456", original_at=now, event_at=now, stale_minutes=5)
+    job.update(show_title=True, show_sender=True, show_original_time=True, show_forward_time=True, show_link=True)
     assert len(json.dumps(payload_for(job), ensure_ascii=False).encode()) < 20000
 
 
@@ -196,6 +198,7 @@ def test_thousands_of_lines_account_for_rich_text_row_overhead():
     for part, chunk in enumerate(chunks, 1):
         job = dict(id=1, kind="new", source="来源", body=chunk, message_id=1, parts=len(chunks), part=part,
                    link="", original_at=now, event_at=now, stale_minutes=5)
+        job.update(show_title=True, show_sender=True, show_original_time=True, show_forward_time=True, show_link=True)
         assert len(json.dumps(payload_for(job), ensure_ascii=False).encode()) < 20000
 
 

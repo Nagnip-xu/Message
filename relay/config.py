@@ -27,7 +27,7 @@ class Config:
     def public(self):
         return {"api_id": self.values["api_id"], "api_hash_configured": bool(self.values["api_hash"]),
                 "proxy": self.values["proxy"], "catchup_limit": self.values["catchup_limit"],
-                "heartbeat_enabled": self.values["heartbeat_enabled"], "heartbeat_interval_hours": 4}
+                "heartbeat_enabled": self.values["heartbeat_enabled"], "heartbeat_interval_hours": 24}
 
     def telegram_proxy(self):
         value = self.values["proxy"].strip()

@@ -16,7 +16,7 @@ from telethon import errors
 from .config import ROOT, Config
 from .feishu import Sender, validate_webhook
 from .heartbeat import Heartbeat
-from .store import Store
+from .store import DISPLAY_FIELDS, Store
 from .telegram import TelegramService, error_text
 
 
@@ -78,6 +78,11 @@ class TaskInput(BaseModel):
     stale_minutes: int = Field(default=5, ge=1, le=1440)
     catch_up: bool = True
     sender_filter: str = Field(default="", max_length=1000)
+    show_title: bool = False
+    show_sender: bool = False
+    show_original_time: bool = False
+    show_forward_time: bool = False
+    show_link: bool = False
 
 
 class TaskUpdate(BaseModel):
@@ -88,6 +93,11 @@ class TaskUpdate(BaseModel):
     stale_minutes: int = Field(default=5, ge=1, le=1440)
     catch_up: bool = True
     sender_filter: str | None = Field(default=None, max_length=1000)
+    show_title: bool | None = None
+    show_sender: bool | None = None
+    show_original_time: bool | None = None
+    show_forward_time: bool | None = None
+    show_link: bool | None = None
 
 
 class SenderFilterInput(BaseModel):
@@ -207,7 +217,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
     @app.put("/api/heartbeat")
     async def heartbeat_settings(value: HeartbeatInput):
         config.save(heartbeat_enabled=value.enabled)
-        store.log("每 4 小时运行状态提醒已" + ("启用" if value.enabled else "关闭"))
+        store.log("每日北京时间 00:00 运行状态提醒已" + ("启用" if value.enabled else "关闭"))
         return config.public()
 
     @app.post("/api/telegram/code")
@@ -287,11 +297,13 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         source = await telegram.resolve_source(value.chat_id, value.topic_id)
         now = int(time.time())
         task_id = store.execute("""INSERT INTO tasks(name,chat_id,chat_title,topic_id,topic_title,robot_id,
-            edits,include_words,exclude_words,stale_minutes,catch_up,enabled_since,cursor,last_scan,created_at,sender_ids,sender_names)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
+            edits,include_words,exclude_words,stale_minutes,catch_up,enabled_since,cursor,last_scan,created_at,sender_ids,sender_names,
+            show_title,show_sender,show_original_time,show_forward_time,show_link)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
             value.robot_id, value.edits, value.include_words, value.exclude_words, value.stale_minutes,
             value.catch_up, now, source["cursor"], now, now,
-            ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders)))
+            ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders),
+            *(getattr(value, field) for field in DISPLAY_FIELDS)))
         store.log(f"监听任务已启用：{value.name.strip()}，从现在开始接收新消息")
         return task_by_id(task_id)
 
@@ -302,8 +314,10 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         if value.sender_filter is not None and value.sender_filter.strip() != sender_ids:
             senders = await telegram.resolve_senders(value.sender_filter) if value.sender_filter.strip() else []
             sender_ids, sender_names = ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders)
-        store.execute("UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=?,sender_ids=?,sender_names=? WHERE id=?",
-                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, sender_ids, sender_names, task_id))
+        display_values = [old[field] if getattr(value, field) is None else getattr(value, field) for field in DISPLAY_FIELDS]
+        display_sql = ",".join(f"{field}=?" for field in DISPLAY_FIELDS)
+        store.execute(f"UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=?,sender_ids=?,sender_names=?,{display_sql} WHERE id=?",
+                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, sender_ids, sender_names, *display_values, task_id))
         return task_by_id(task_id)
 
     @app.post("/api/tasks/{task_id}/toggle")

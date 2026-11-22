@@ -56,22 +56,42 @@ def format_time(timestamp):
 
 
 def payload_for(job, secret="", now=None):
-    now = now or time.time()
-    label = {"new": "新消息", "edit": "消息更新", "catchup": "断线补发", "test": "连接测试", "heartbeat": "运行状态"}[job["kind"]]
-    delayed = job["kind"] != "test" and now - job["event_at"] > job["stale_minutes"] * 60
+    now = time.time() if now is None else now
+    kind = job["kind"]
+    label = {"new": "新消息", "edit": "消息更新", "catchup": "断线补发", "test": "连接测试", "heartbeat": "运行状态"}[kind]
+    delayed = kind in ("new", "edit", "catchup") and now - job["event_at"] > job["stale_minutes"] * 60
     if delayed:
         label = f"延迟补发 · {label}"
     suffix = f" · {job['part']}/{job['parts']}" if job["parts"] > 1 else ""
-    content = [[{"tag": "text", "text": line or " "}] for line in job["body"].splitlines()]
-    content.append([{"tag": "text", "text": " "}])
-    if job.get("sender_name"):
-        content.append([{"tag": "text", "text": f"发送人：{job['sender_name']}"}])
-    original_label = "检查时间" if job["kind"] == "heartbeat" else "原消息"
-    content += [[{"tag": "text", "text": f"{original_label}：{format_time(job['original_at'])} (UTC+8)"}],
-                [{"tag": "text", "text": f"转发：{format_time(now)} (UTC+8)"}]]
-    if job["link"]:
-        content.append([{"tag": "a", "text": "在 Telegram 查看原消息", "href": job["link"]}])
-    payload = {"msg_type": "post", "content": {"post": {"zh_cn": {"title": f"【{label}】{job['source'][:120]}{suffix}", "content": content}}}}
+    # Daily reports and connection tests never inherit a task's display options.
+    task_message = kind in ("new", "edit", "catchup")
+    title = f"【{label}】{job['source'][:120]}{suffix}" if task_message and job.get("show_title") else ""
+    body = job["body"]
+    if task_message and not title:
+        # Preserve edit / recovery context and chunk order even in body-only mode.
+        prefix = f"【{label}{suffix}】" if delayed or kind != "new" or suffix else ""
+        body = prefix + body
+    metadata = []
+    if task_message:
+        if job.get("show_sender") and job.get("sender_name"):
+            metadata.append([{"tag": "text", "text": f"发送人：{job['sender_name']}"}])
+        # A late trading signal must still carry its original time.
+        if job.get("show_original_time") or delayed:
+            metadata.append([{"tag": "text", "text": f"原消息：{format_time(job['original_at'])} (UTC+8)"}])
+        if job.get("show_forward_time"):
+            metadata.append([{"tag": "text", "text": f"转发：{format_time(now)} (UTC+8)"}])
+        if job.get("show_link") and job["link"]:
+            metadata.append([{"tag": "a", "text": "在 Telegram 查看原消息", "href": job["link"]}])
+    if title or metadata:
+        content = [[{"tag": "text", "text": line or " "}] for line in body.splitlines()]
+        if metadata:
+            content += [[{"tag": "text", "text": " "}], *metadata]
+        post = {"content": content}
+        if title:
+            post["title"] = title
+        payload = {"msg_type": "post", "content": {"post": {"zh_cn": post}}}
+    else:
+        payload = {"msg_type": "text", "content": {"text": body}}
     if secret:
         timestamp = str(int(now))
         payload.update(timestamp=timestamp, sign=signature(secret, timestamp))
