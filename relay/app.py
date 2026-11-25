@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 from telethon import errors
 
+from . import __version__
 from .config import ROOT, Config
 from .feishu import Sender, validate_webhook
 from .heartbeat import Heartbeat
@@ -149,7 +150,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         await sender.close()
         await uploader.close()
 
-    app = FastAPI(title="消息中继", version="1.1.3", lifespan=lifespan)
+    app = FastAPI(title="消息中继", version=__version__, lifespan=lifespan)
     app.state.store, app.state.telegram = store, telegram
     app.state.image_uploader = uploader
 
@@ -208,7 +209,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
 
     @app.get("/api/health")
     async def health():
-        return {"ok": True, "app": "telegram-feishu-relay", "version": "1.1.3"}
+        return {"ok": True, "app": "telegram-feishu-relay", "version": __version__}
 
     @app.get("/api/state")
     async def state():

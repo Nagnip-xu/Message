@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from telethon import TelegramClient, events, errors, types, utils
 from telethon.tl import functions
 
+from . import __version__
 from .config import Config, DATA
 from .feishu import split_text
 from .store import Store
@@ -97,7 +98,7 @@ class TelegramService:
             if self.client is None:
                 self.client = TelegramClient(DATA / "telegram", int(self.config.values["api_id"]),
                     self.config.values["api_hash"], proxy=self.config.telegram_proxy(),
-                    device_model="Message Relay", app_version="1.1.3", system_lang_code="zh-CN",
+                    device_model="Message Relay", app_version=__version__, system_lang_code="zh-CN",
                     connection_retries=1, request_retries=1, timeout=8,
                     flood_sleep_threshold=0, auto_reconnect=True, sequential_updates=True)
                 self.client.add_event_handler(self.on_new, events.NewMessage())

@@ -40,3 +40,28 @@ jobs:
       - name: Build frontend
         working-directory: frontend
         run: npm run build
+      - name: Install browser for integration checks
+        if: runner.os == 'Linux'
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Verify browser workflows with isolated fixtures
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          python -m uvicorn tests.ui_server:app --host 127.0.0.1 --port 8766 --no-access-log > /tmp/message-ui-test.log 2>&1 &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          python - <<'PY'
+          import time,urllib.request
+          for attempt in range(30):
+              try:
+                  urllib.request.urlopen('http://127.0.0.1:8766/api/health',timeout=2)
+                  break
+              except Exception:
+                  time.sleep(.5)
+          else:
+              raise SystemExit('Isolated UI fixture did not start')
+          PY
+          cd frontend
+          node scripts/integration.mjs
+          node scripts/features.mjs

@@ -1,0 +1,4 @@
+# Verified optional CPU recognition runtime (Python 3.11+).
+numpy==2.4.6
+sherpa-onnx==1.12.26
+sherpa-onnx-core==1.12.26

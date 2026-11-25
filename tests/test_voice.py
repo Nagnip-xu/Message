@@ -271,3 +271,15 @@ def test_transcription_to_signed_feishu_delivery_preserves_text_and_dedup(store)
             assert store.one('SELECT status FROM deliveries')['status']=='sent'
         finally:await sender.close()
     asyncio.run(run())
+
+
+def test_restart_removes_only_owned_stale_voice_files(store,tmp_path,monkeypatch):
+    monkeypatch.setattr('relay.voice.DATA',tmp_path)
+    directory=tmp_path/'voice-tmp'
+    stale=directory/'voice-interrupted'
+    stale.mkdir(parents=True)
+    (stale/'source.ogg').write_bytes(b'partial audio')
+    keep=directory/'unrelated.txt'
+    keep.write_text('keep')
+    worker(store).cleanup()
+    assert not stale.exists() and keep.exists()

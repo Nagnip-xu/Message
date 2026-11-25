@@ -42,6 +42,16 @@ class VoiceWorker:
         return {"ready": ready, "busy": self.busy, "pending": pending, "max_seconds": MAX_SECONDS,
                 "engine": "SenseVoice · CPU"}
 
+    def cleanup(self):
+        directory = DATA / "voice-tmp"
+        directory.mkdir(mode=0o700,parents=True,exist_ok=True)
+        # Interrupted recognition cannot retain audio indefinitely after a restart.
+        for path in directory.glob("voice-*"):
+            if path.is_symlink() or path.is_file():
+                path.unlink()
+            elif path.is_dir():
+                shutil.rmtree(path)
+
     async def command(self, *args, timeout):
         process = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE, env={**os.environ,"OMP_NUM_THREADS":"1","OPENBLAS_NUM_THREADS":"1","MKL_NUM_THREADS":"1"})
@@ -143,6 +153,7 @@ class VoiceWorker:
         return True
 
     async def run(self):
+        self.cleanup()
         while True:
             try:
                 if not await self.process_once():

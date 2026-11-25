@@ -20,11 +20,11 @@ Continuously receive messages accessible to the signed-in Telegram account, matc
 
 ## Operating Context
 
-Release 1.1.0 runs as a single background process on Windows or a Linux server. Each installation supplies its own Telegram application credentials, account login and Feishu group custom-bot Webhooks through the management interface. Private settings and account state are excluded from the source repository. Sources and forum topics are discovered from the signed-in account.
+Release 1.2.0 runs as a single background process on Windows or a Linux server. Each installation supplies its own Telegram application credentials, account login and Feishu group custom-bot Webhooks through the management interface. Private settings and account state are excluded from the source repository. Sources and forum topics are discovered from the signed-in account.
 
 ## Capabilities and Constraints
 
-One Telegram account, multiple groups/channels/topics, multiple Feishu robots, new and edited text, caption and attachment notices, optional keyword filtering, durable delivery queue, reconnect/catch-up, explicit delayed-message labels, logs and manual retries. No automatic trading. No bypass of Telegram content protection. First run does not replay historical messages. No fabricated connected states, real messages or performance claims. Feishu acceptance is distinct from a mobile notification.
+One Telegram account, multiple groups/channels/topics, multiple Feishu robots, new and edited text, caption and attachment notices, optional sender and keyword filtering, compact notification display, one-level reply quotes, optional CPU speech transcription, Feishu image upload with user-supplied app credentials, temporary media cleanup, durable delivery queues, reconnect/catch-up, daily Beijing-midnight reports, explicit delayed-message labels, logs and manual retries. No automatic trading. No bypass of Telegram content protection. First run does not replay historical messages. No fabricated connected states, real messages or performance claims. Feishu acceptance is distinct from a mobile notification.
 
 ## Brand Commitments
 

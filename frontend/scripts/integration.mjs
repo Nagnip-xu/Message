@@ -2,13 +2,14 @@ import { chromium, expect } from '@playwright/test';
 import fs from 'node:fs';
 
 fs.mkdirSync('../artifacts/screenshots', { recursive: true });
-const browser = await chromium.launch({ headless: true });
+const base = process.env.MESSAGE_TEST_URL || 'http://127.0.0.1:8766';
+const browser = await chromium.launch({ headless: true, ...(process.env.MESSAGE_TEST_BROWSER ? { channel: process.env.MESSAGE_TEST_BROWSER } : {}) });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1050 } });
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
-  await page.request.post('http://127.0.0.1:8766/__test__/reset');
-  await page.goto('http://127.0.0.1:8766');
+  await page.request.post(`${base}/__test__/reset`);
+  await page.goto(base);
   await page.getByRole('heading', { name: '监听工作台', exact: true }).waitFor();
   await page.getByRole('button', { name: '飞书机器人', exact: true }).click();
   await page.getByRole('button', { name: '添加机器人', exact: true }).first().click();
@@ -19,7 +20,7 @@ try {
   await drawer.getByRole('button', { name: '添加机器人', exact: true }).click();
   await expect(drawer).toHaveCount(0);
   await page.getByRole('button', { name: '测试', exact: true }).click();
-  await expect.poll(async () => (await (await page.request.get('http://127.0.0.1:8766/api/deliveries')).json()).items[0]?.status).toBe('sent');
+  await expect.poll(async () => (await (await page.request.get(`${base}/api/deliveries`)).json()).items[0]?.status).toBe('sent');
   await page.getByRole('button', { name: '监听工作台', exact: true }).click();
   await page.getByRole('button', { name: '新建监听任务', exact: true }).click();
   await drawer.getByRole('radio', { name: /集成测试群/ }).click();
@@ -28,9 +29,9 @@ try {
   await drawer.getByRole('button', { name: '创建并开始监听', exact: true }).click();
   await expect(drawer).toHaveCount(0);
   await expect(page.getByText('集成测试：只转发交易话题', { exact: true })).toBeVisible();
-  const ingest = await page.request.post('http://127.0.0.1:8766/__test__/ingest');
+  const ingest = await page.request.post(`${base}/__test__/ingest`);
   expect((await ingest.json()).enqueued).toBe(2);
-  await expect.poll(async () => (await (await page.request.get('http://127.0.0.1:8766/api/deliveries')).json()).items.filter(row => row.status === 'sent').length).toBe(3);
+  await expect.poll(async () => (await (await page.request.get(`${base}/api/deliveries`)).json()).items.filter(row => row.status === 'sent').length).toBe(3);
   await page.getByRole('button', { name: '编辑 集成测试：只转发交易话题', exact: true }).click();
   await drawer.getByRole('switch', { name: '同步消息编辑', exact: true }).click();
   await expect(drawer).toBeVisible();

@@ -1,8 +1,8 @@
 # Message · Telegram → 飞书消息中继
 
-**正式版 1.1.3** · 中文可视化管理 · Windows 本地运行 · Linux 服务器常驻
+**正式版 1.2.0** · 中文可视化管理 · Windows 本地运行 · Linux 服务器常驻
 
-稳定回退基线：**[v1.1.0](https://github.com/Nagnip-xu/Message/releases/tag/v1.1.0)**。保留此 Git 标签和发布附件即可恢复对应代码与前端；账号、任务和历史数据另行私有备份。版本变化见 [CHANGELOG.md](CHANGELOG.md)。
+稳定回退基线：**[v1.1.0](https://github.com/Nagnip-xu/Message/releases/tag/v1.1.0)**。保留此 Git 标签和发布附件即可恢复对应代码与前端；账号、任务和历史数据另行私有备份。版本变化见 [CHANGELOG.md](CHANGELOG.md)，本次功能与资源核对见 [验证记录](docs/verification.md)。
 
 [![自动验证](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml/badge.svg)](https://github.com/Nagnip-xu/Message/actions/workflows/ci.yml)
 **[访问官网 →](https://nagnip-xu.github.io/Message/)** · [发布版本](https://github.com/Nagnip-xu/Message/releases) · [问题反馈](https://github.com/Nagnip-xu/Message/issues)
@@ -34,6 +34,8 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 - [Windows 安装与启动](#windows-安装与启动)
 - [首次配置与使用](#首次配置与使用)
 - [日常管理](#日常管理)
+- [语音转文字部署](#语音转文字部署)
+- [图片转发配置](#图片转发配置)
 - [Linux 服务器部署](#linux-服务器部署)
 - [服务器代理配置](#服务器代理配置)
 - [电脑重启后查看服务器状态](#电脑重启后查看服务器状态)
@@ -54,17 +56,23 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 - 多监听任务、多飞书机器人，一个来源可分别推送到不同机器人。
 - 新消息转发，**每个任务独立控制是否同步消息编辑**。
 - 包含/排除关键词过滤，不区分英文大小写，排除规则优先。
-- 显示可获取的发送人姓名或频道署名；原消息时间与转发时间分行显示，保留可用的原消息链接。
+- 普通消息默认仅正文；高级选项独立控制来源标题、发送人、原消息时间、转发时间和原消息链接。
+- 回复消息自动引用上一层原文和作者，保留回复者；引用最长 200 字，不展开整段对话。
+- 语音转文字：SenseVoice int8 + sherpa-onnx，CPU 本地识别，每条语音独立处理；不合并发言、不依赖收费识别 API。
+- 图片与配文转发：单独后台队列，配置飞书应用后上传并通过群机器人显示；每张最大 10MB，临时文件自动清理。
+- 贴纸、动画贴纸、视频贴纸和无配文 GIF 直接跳过；文字中的普通 emoji 保留。
 - 长文本拆分发送，按正文及附件内容版本去重。
 - SQLite 持久化队列、新消息按顺序分批补发、延迟补发标记、限流及可重试错误退避。
 - Telegram 在线请求检查、请求超时后自动重建连接，避免仅凭套接字状态误判在线。
-- 每 4 小时向启用的飞书机器人发送运行状态提醒，没有新消息也发送；可在运行设置关闭。
+- 所有启用的机器人每天北京时间 **00:00** 各发送一次两句左右的简短状态提醒；没有新消息也发送，支持关闭。
+- 历史读取按页等待，遇到 Telegram 限流持久化冷却时间，重启后继续遵守。
 - 发送记录、正文查询、失败手动重试、结果未知时人工核对。
 - Windows 启动/停止与登录后自动启动脚本；Linux systemd 服务示例。
 
 ### 当前不包含
 
-- **图片、视频和附件文件本体上传**：目前转发文字/图片说明，显示“含图片，原文件未转发”等提示；文件本体需在 Telegram 查看。
+- 视频及其他附件文件本体上传、图片 OCR、自动合并多条发言。普通视频和文件保留说明与可用的原消息链接。
+- 图片未配置飞书应用或转发失败时，发送配文、失败/待配置提示和可用的原消息链接，不把图片长期保存在磁盘。
 - 自动交易、飞书加急、已发送通知撤回、Telegram 删除消息镜像。
 - 绕过内容保护或还原匿名身份：受保护内容跳过，匿名消息仅展示 Telegram 提供的身份。
 - 多 Telegram 账号并行、带账号鉴权的公网管理站点、打包好的 Windows EXE。
@@ -100,9 +108,9 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 
 ### 调整转发规则
 
-每个任务可独立关闭“同步消息编辑”，也可以设置包含/排除关键词和断线补发。
+每个任务可独立关闭“同步消息编辑”。展开高级选项，还可以指定发送人、切换语音/图片转发，并控制附加信息的显示。
 
-![编辑监听规则：消息编辑开关、关键词和断线补发](docs/images/rule-editor.png)
+![编辑监听规则：图片、语音和指定成员的高级选项](docs/images/rule-editor.png)
 
 ## 运行环境
 
@@ -112,10 +120,12 @@ Message 后台：监听 → 规则过滤 → SQLite 队列 → 飞书 Webhook
 | Node.js | 22.12 或更新版本，推荐 24 LTS；只在安装/构建前端时需要 |
 | Git | 克隆与更新时需要；也可下载源代码 ZIP |
 | Telegram | 自己的 API ID/API Hash，及已加入目标来源的账号 |
-| 飞书 | 可添加群自定义机器人的群聊与机器人的 Webhook |
+| 飞书 | 文字只需群自定义机器人 Webhook；图片另需自建应用凭证与 im:resource 权限 |
+| 语音（可选） | FFmpeg、独立 Python 环境、SenseVoice int8 模型与 tokens.txt；不要求 GPU |
+| 参考服务器 | 文字/图片 1–2 核、1GB 以上；含语音建议至少 2 核、2GB，语音较多建议 4GB |
 | 网络 | 后台设备可访问 Telegram、飞书与依赖下载地址；必要时配置代理 |
 
-依赖由 `requirements.lock.txt` 和 `frontend/package-lock.json` 固定。前端构建后由 Python 提供静态页面，日常后台运行无需 Node.js。
+主程序依赖由 `requirements.lock.txt` 和 `frontend/package-lock.json` 固定；可选语音依赖由 `requirements-voice.lock.txt` 固定。前端构建后由 Python 提供静态页面，日常后台运行无需 Node.js。
 
 安装参考：[Python](https://www.python.org/downloads/)、[Node.js](https://nodejs.org/en/download)、[Git](https://git-scm.com/downloads)。安装后新开终端检查：
 
@@ -197,7 +207,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-autostart.
 3. 复制 HTTPS Webhook，格式为 `https://open.feishu.cn/open-apis/bot/v2/hook/...`。
 4. 开启 **签名校验** 时同时保存签名密钥；配置了关键词/IP 白名单时，内容与后台出口 IP 也需符合规则。
 
-本项目使用**群自定义机器人 Webhook**，无需先创建企业应用。应用机器人的 App ID/App Secret 不能直接填入这里。
+文字通知使用**群自定义机器人 Webhook**，无需先创建企业应用。图片上传另需自建应用的 App ID/App Secret，填写到“运行设置 → 飞书图片上传”，不能填进 Webhook 或签名密钥字段。
 
 参考：[飞书自定义机器人使用指南](https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot)。
 
@@ -223,6 +233,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-autostart.
 |---|---|
 | 同步消息编辑 | 原文修改后另发“消息更新”；只想看新消息就关闭，每个任务独立设置 |
 | 检查断线补发 | 重连与运行中从上次位置按顺序分批检查新消息；历史编辑只检查近期窗口 |
+| 转发图片（高级选项） | 默认开启；配置飞书图片上传应用后显示图片及配文，贴纸继续跳过 |
+| 语音转文字（高级选项） | 新任务默认开启；服务器需安装识别环境和模型，最长 10 分钟、25MB |
+| 飞书消息显示（高级选项） | 默认仅正文；标题、发送人、两种时间和原消息链接按需开启 |
 | 只监听这些发送人 | 留空接收所有人；填写 @用户名或用户 ID，或从最近发言人选择；多人命中任意一个即可 |
 | 包含关键词 | 逗号/换行分隔，命中任意一个即可；留空不限制 |
 | 排除关键词 | 命中任意一个跳过，优先于包含规则 |
@@ -242,18 +255,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-autostart.
 
 关闭编辑同步：**监听工作台 → 任务右侧铅笔 → 关闭“同步消息编辑” → 保存规则**。不必关闭整个任务或重启；保存前已经入队的通知仍可能发出。
 
-通知示例（虚构内容）：
+普通通知默认只显示正文。回复通知示例（虚构内容）：
 
 ```text
-【新消息】示例群 / 信号话题
-
-这是一条用于验证转发的示例消息。
-
-发送人：示例成员
-原消息：11-03 20:11:09 (UTC+8)
-转发：11-03 20:11:10 (UTC+8)
-在 Telegram 查看原消息
+↳ 回复张三：现在可以加仓吗？
+李四：先等等，暂时别动。
 ```
+
+只引用上一层原文，长原文截取 200 字；删除、无权限或受保护时注明原消息不可读取，当前回复仍发送。话题根消息不会误当成回复引用。指定成员和关键词规则按当前发言判断，引用原文不会扩大监听范围。语音回复也保留引用。
+
+消息编辑、断线补发与延迟消息保留简短标记；延迟消息始终显示原消息时间。普通新消息的附加字段在“高级选项 → 飞书消息显示”里单独开启。配置了飞书关键词校验时，**仅正文模式也必须满足关键词**；程序不会自动在每条正文前加 TG。
 
 ## 日常管理
 
@@ -273,20 +284,93 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-autostart.
 
 **发送记录** 支持搜索、状态筛选、详情与重试；**运行设置 → 导出诊断信息** 提供日志与统计，不包含 API Hash、Webhook 或正文。时间统一为 UTC+8；接口耗时仅为 HTTP 响应时间，不是端到端通知延迟。
 
-### 每 4 小时运行状态提醒
+### 每日零点运行状态提醒
 
-默认开启，可在 **运行设置 → 定时运行状态提醒 → 每天固定时间发送到飞书** 开关控制，修改开关无需重连 Telegram。
+默认开启，可在 **运行设置 → 定时运行状态提醒 → 每天 00:00 发送到飞书** 控制。所有已启用的机器人每天北京时间零点各生成一次，没有新消息也发送，内容只保留两句左右：
 
-- 每个已启用的飞书机器人接收一条提醒；即使没有新消息，或者 Telegram 连接异常，也会生成提醒。
-- 内容包含 Telegram 在线请求检查结果、最近检查时间、启用任务数、过去 4 小时消息推送数、最近推送时间、队列与异常情况。
-- 所有机器人统一按北京时间每天 **00:00、04:00、08:00、12:00、16:00、20:00** 生成提醒，不再按启动或上次发送时间滚动计时。
-- 启动或重新开启后等待下一个固定时点；调度允许一分钟内的执行误差，错过的时段不补发。每个机器人每个时点仅生成一次，进度写入 SQLite，重启不会重复生成同一时点的报告。实际送达受发送队列和网络影响。
-- 提醒使用同一持久化发送队列及重试规则，在 **发送记录** 显示为“运行状态”。飞书暂时无法接收时，新的定时快照会替代尚未发出的旧快照，避免恢复后连续发送过期报告。
-- “过去 4 小时没有成功推送”不能单独证明来源没有消息；应同时查看连接、任务、补发积压和队列状态。
+```text
+每日状态：运行正常，正在监听 1 个任务。
+过去 24 小时已推送 12 条消息。
+```
 
-Telegram 在线检查约每 30 秒一次，15 秒没有响应就进入重连流程；历史读取也设有超时。超过 90 秒没有成功在线请求时，管理面板不会继续显示“已连接”。
+异常时简短提示连接、恢复或队列问题，详细信息在管理面板查看。提醒时间由 `Asia/Shanghai` 计算，与服务器系统时区和启动时间无关；重启不重复提醒，错过的时点不补发。调度允许一分钟误差，实际送达仍受网络与发送队列影响。
 
-此提醒由服务器后台发送，不依赖浏览器或个人电脑；但服务器关机、后台停止、飞书连接失败时无法保证按时送达。若超过 4 小时仍没有报告，请检查服务、代理和发送记录。
+Telegram 在线请求检查约每 30 秒一次，15 秒无响应进入重连；超过 90 秒没有成功在线请求时，面板不继续显示已连接。历史补查分页读取并遵守 Telegram 返回的等待时间。服务器停止时无法生成提醒；没有推送记录不能单独证明来源没有消息。
+
+## 语音转文字部署
+
+语音使用 **SenseVoice 量化模型 + sherpa-onnx CPU 推理**，不调用外部收费识别 API，也不需要 GPU。语音在独立进程识别，每次只处理一条，文字监听和发送不等待识别结束。支持 Telegram 语音消息，普通音乐/音频文件暂不转写；单条最长 **10 分钟、25MB**。多条语音依次处理，不合并发言。
+
+成功时推送 `语音转文字（9秒）：……`，结果继续经过任务的包含/排除关键词筛选；失败、超限或未配置模型时提供提示和可用的 Telegram 收听链接。临时音频在成功/失败后删除，重启清理被中断的临时文件。识别内容可能有误，尤其是人名、币种和嘈杂录音，必要时核对原语音。
+
+### Linux 安装（主程序部署完成后）
+
+```bash
+# Ubuntu / Debian：先安装 FFmpeg；其他发行版使用自身的软件源安装等效工具
+sudo apt update
+sudo apt install -y ffmpeg bzip2
+
+# 识别环境与主程序环境分开，不向主程序安装大模型依赖
+sudo mkdir -p /opt/message-asr/models
+sudo /opt/Message/.venv/bin/python -m venv /opt/message-asr/venv
+sudo /opt/message-asr/venv/bin/python -m pip install -r /opt/Message/requirements-voice.lock.txt
+
+cd /tmp
+curl -fL --retry 2 \
+  https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17.tar.bz2 \
+  -o sensevoice-int8.tar.bz2
+printf '7d1efa2138a65b0b488df37f8b89e3d91a60676e416f515b952358d83dfd347e  sensevoice-int8.tar.bz2\n' | sha256sum -c -
+sudo tar -xjf sensevoice-int8.tar.bz2 -C /opt/message-asr/models
+rm sensevoice-int8.tar.bz2
+
+sudo mkdir -p /etc/systemd/system/message-relay.service.d
+sudo cp /opt/Message/deploy/voice.conf.example /etc/systemd/system/message-relay.service.d/voice.conf
+sudo systemctl daemon-reload
+sudo systemctl restart message-relay
+```
+
+Alibaba Cloud Linux 3 请确认 `/usr/bin/ffmpeg` 可用；默认源没有 FFmpeg 时，需要自行配置适配当前系统的软件源或安装官方构建，不要替换系统 Python。模型无法从服务器下载时，可在电脑从同一官方地址下载、校验后通过 SCP 上传再解压。模型约 239MB，压缩包约 163MB，部署后无需保留重复压缩包。模型来源与许可见 [SenseVoice](https://github.com/FunAudioLLM/SenseVoice) 和 [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)。
+
+`deploy/voice.conf.example` 提供 `MESSAGE_ASR_PYTHON`、`MESSAGE_ASR_MODEL`、`MESSAGE_ASR_TOKENS` 和 `MESSAGE_FFMPEG` 四个环境变量。使用不同目录时修改为实际绝对路径，确保 `message-relay` 用户有读取和执行权限。模型文件保留可读权限，私有会话与配置继续仅服务用户可访问。
+
+### Windows 配置（可选）
+
+安装可执行的 FFmpeg 和兼容的 Python 3.11+，把同一模型解压到自己的目录。创建独立识别环境，再在启动后台的 PowerShell 中设置：
+
+```powershell
+python -m venv .voice-venv
+.\.voice-venv\Scripts\python.exe -m pip install -r requirements-voice.lock.txt
+$env:MESSAGE_ASR_PYTHON = (Resolve-Path '.voice-venv\Scripts\python.exe').Path
+$env:MESSAGE_ASR_MODEL = 'D:\Models\sensevoice\model.int8.onnx'
+$env:MESSAGE_ASR_TOKENS = 'D:\Models\sensevoice\tokens.txt'
+$env:MESSAGE_FFMPEG = 'C:\Tools\ffmpeg\bin\ffmpeg.exe'
+.\Start.ps1
+```
+
+以上路径为示例，需要替换。启动器会把环境变量传给后台；已运行的后台需先安全停止再启动。自动启动时也需设置持久环境变量或专用启动脚本。进入任务“高级选项”确认语音转文字开启且服务就绪。本项目已在 Linux CPU 环境实测，Windows 的模型与 FFmpeg 安装需按设备检查。
+
+## 图片转发配置
+
+文字推送只需要 Webhook；**图片上传另需飞书自建应用凭证**。流程为：临时下载 Telegram 图片 → 调用飞书图片上传接口取得 `image_key` → 群机器人显示图片。纯图片直接发送图片，有配文则与图片放在同一条富文本消息里；相册中的各张图片分别处理，不合并多条发言。
+
+每次只处理一张、最大 **10MB**。仅临时文件短暂占用磁盘，上传成功、失败、取消后删除，重启清理残留。数据库保存发送记录和图片 key，不保存图片二进制；短期缓存复用同一应用上传的图片 key，减少重复上传。不会进行 OCR。贴纸和无配文 GIF 跳过，视频、PDF 等继续发送附件提示。
+
+### 一次性配置步骤
+
+1. 登录 [飞书开发者后台](https://open.feishu.cn/app)，选择目标群所在的企业或团队，创建 **企业自建应用**。
+2. 在 **添加应用能力** 开启 **机器人**，到 **权限管理** 搜索 `im:resource`，申请图片/文件资源上传下载权限。
+3. 在 **版本管理与发布** 创建版本并发布，按组织要求完成权限审批。
+4. 在 **凭证与基础信息** 复制 **App ID、App Secret**。
+5. 打开 Message **运行设置 → 飞书图片上传**，填入凭证并保存；App Secret 与群机器人的签名密钥不同，留空仅保留已有密钥。
+6. 点击 **测试上传权限**，验证令牌和图片上传；该测试不向群发送消息。
+7. 选择目标机器人，点击 **发送测试图片**，在实际飞书群中确认绿色图片显示正常。上传通过不能代替目标群显示验证，应用与目标群应属于同一企业/团队。
+8. 编辑监听任务，在 **高级选项 → 转发图片** 开启；新旧任务默认开启。
+
+不需要图片识别模型、事件回调地址或额外域名。无企业/团队或应用管理入口时，先在飞书创建或加入自己有应用管理权限的团队，再按组织要求发布应用。受保护或已删除的 Telegram 图片不会绕过限制下载。
+
+![飞书图片上传配置：创建应用步骤、凭证输入与测试入口（模拟环境）](docs/images/image-setup.png)
+
+**待配置/失败时：** 继续发送配文、原因提示和可用的 Telegram 原消息链接，不把图片文件堆在服务器。配置完成后处理新收到的图片，不自动重放此前已经发送占位提示的历史。图片获取和上传支持最多三次处理尝试；成功入队后沿用飞书发送队列的重试/结果未知核对规则。要实际显示图片，必须完成自己账号下的应用授权和群内测试，源码不附带任何可用凭证。
 
 ## Linux 服务器部署
 
@@ -354,7 +438,7 @@ sudo systemctl status message-relay --no-pager
 curl --fail http://127.0.0.1:8765/api/health
 ```
 
-已有同名用户时跳过 `useradd`，更新时无需重复创建。健康接口应返回 `"ok": true` 与 `"version": "1.1.3"`；此接口只表示后台进程在线，实际 Telegram 连接请查看管理面板或 `/api/state`。
+已有同名用户时跳过 `useradd`，更新时无需重复创建。健康接口应返回 `"ok": true` 与 `"version": "1.2.0"`；此接口只表示后台进程在线，实际 Telegram 连接请查看管理面板或 `/api/state`。
 
 服务使用程序目录 `/opt/Message`、Python `/opt/Message/.venv/bin/python` 和数据目录 `/var/lib/message-relay`（通过 `RELAY_DATA_DIR` 设置，首次由 systemd 创建）。开机自动运行，异常退出尝试重启，运行日志交给 journal。
 
@@ -620,7 +704,7 @@ curl --fail http://127.0.0.1:8765/api/health
 
 ### 图片为什么没有出现在飞书？
 
-1.1.0 仅转发文字、图片/附件提示与原链接，不下载上传文件本体。Webhook 不提供图片上传所需的应用凭证；本版没有接入应用机器人的上传流程。
+请按[图片转发配置](#图片转发配置)填写自建应用凭证，测试上传权限，再向目标群发送测试图片。检查任务“转发图片”开关、10MB 限制、内容保护，以及发送记录中的具体错误。只有 Webhook 或语音模型就绪，并不表示图片上传已经配置完成。
 
 ### Telegram 连接超时或来源列表为空？
 
@@ -676,9 +760,12 @@ npm ci
 npm run build
 npx playwright install chromium
 node scripts/integration.mjs
+node scripts/features.mjs
 ```
 
-覆盖机器人配置、任务/话题、新消息/编辑、去重、规则、暂停恢复、历史查询和移动布局。`scripts/capture.mjs` 读取本机正式服务截图，可能含真实配置，产物在被 Git 忽略的 `artifacts/`，不作为公开截图提交。
+覆盖机器人配置、任务/话题、新消息/编辑、去重、规则、暂停恢复、历史查询、移动布局，以及图片应用凭证保存/清除、模拟上传错误/成功、测试图片队列、语音与消息显示开关。Linux CI 同时运行两组浏览器流程；后端测试在 Windows/Linux 执行。可设 `MESSAGE_TEST_URL` 指定隔离测试地址，`MESSAGE_TEST_BROWSER=chrome` 使用系统 Chrome。
+
+`node scripts/screenshots.mjs` 仅连接明确标记为模拟账号的隔离测试服务，更新公开文档截图；不使用生产服务截图。`scripts/capture.mjs` 读取本机正式服务截图，可能含真实配置，产物在被 Git 忽略的 `artifacts/`，不作为公开截图提交。
 
 ## 官网维护与发布
 
@@ -711,15 +798,16 @@ frontend/src/                React / TypeScript 中文管理界面
 website/                     独立中文官网、消息演示与静态资源
 frontend/scripts/            浏览器集成测试和本机截图脚本
 tests/                       后端测试与隔离 UI 测试服务
-deploy/message-relay.service Linux systemd 服务示例
+deploy/                      Linux systemd 服务与可选语音环境变量示例
 docs/images/                 README 使用的模拟数据截图
 .github/workflows/ci.yml     Windows / Linux 后端测试与前端构建
 .github/workflows/pages.yml  GitHub Pages 官网自动发布
 Start.cmd / Stop.cmd         Windows 启动 / 安全停止
 scripts/                    依赖更新与登录后自动启动
 run_server.py                回环监听、单实例锁、单 worker 入口
-requirements.lock.txt        Python 精确依赖
+requirements.lock.txt        主程序 Python 精确依赖
+requirements-voice.lock.txt  可选 CPU 语音识别精确依赖
 data/                       私有配置、会话、机器人、队列、历史和本机日志
 ```
 
-`data/`、`.venv/`、`node_modules/`、构建产物、日志、数据库、会话和本机截图均由 Git 忽略。源码仓库不附带任何可用的账号或机器人配置。
+`data/`、`.venv/`、`.voice-venv/`、`node_modules/`、构建产物、日志、数据库、会话和本机截图均由 Git 忽略。源码仓库不附带任何可用的账号或机器人配置。
