@@ -318,10 +318,17 @@ class TelegramService:
         body = message.message or ""
         media = getattr(message, "media", None)
         document = getattr(media, "document", None)
+        attributes = getattr(document, "attributes", [])
+        decorative = any(isinstance(a, (types.DocumentAttributeSticker, types.DocumentAttributeAnimated))
+                         for a in attributes) or getattr(document, "mime_type", "") == "application/x-tgsticker"
+        if decorative and not body.strip():
+            # Static / animated / video stickers and captionless GIFs carry no signal text.
+            # Skip before sender lookup so they also add no attachment placeholders.
+            return 0
         voice = next((a for a in getattr(document, "attributes", [])
                       if isinstance(a, types.DocumentAttributeAudio) and a.voice), None)
         transcribe = voice is not None and task.get("transcribe_voice", False)
-        if media and not isinstance(media, types.MessageMediaWebPage) and not transcribe:
+        if media and not isinstance(media, types.MessageMediaWebPage) and not transcribe and not decorative:
             label = "图片" if isinstance(media, types.MessageMediaPhoto) else "附件"
             body += f"\n\n［含{label}，原文件未转发］"
         # Voice keywords must be evaluated on the transcription, not the attachment placeholder.
