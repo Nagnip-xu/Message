@@ -52,6 +52,18 @@ class Store:
                   id INTEGER PRIMARY KEY, level TEXT NOT NULL, message TEXT NOT NULL, created_at REAL NOT NULL);
                 CREATE TABLE IF NOT EXISTS runtime_state(
                   key TEXT PRIMARY KEY, value REAL NOT NULL);
+                CREATE TABLE IF NOT EXISTS voice_jobs(
+                  id INTEGER PRIMARY KEY, task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+                  message_id INTEGER NOT NULL, version TEXT NOT NULL, media_key TEXT NOT NULL,
+                  source TEXT NOT NULL, sender_name TEXT NOT NULL, link TEXT NOT NULL,
+                  caption TEXT NOT NULL, duration INTEGER NOT NULL, byte_size INTEGER NOT NULL,
+                  kind TEXT NOT NULL, original_at REAL NOT NULL, event_at REAL NOT NULL, received_at REAL NOT NULL,
+                  status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
+                  next_attempt REAL NOT NULL DEFAULT 0, error TEXT NOT NULL DEFAULT '',
+                  UNIQUE(task_id,message_id,version));
+                CREATE INDEX IF NOT EXISTS voice_queue ON voice_jobs(status,next_attempt,id);
+                CREATE TABLE IF NOT EXISTS voice_cache(
+                  media_key TEXT PRIMARY KEY, text TEXT NOT NULL, created_at REAL NOT NULL);
             """)
             columns = {row[1] for row in db.execute("PRAGMA table_info(deliveries)")}
             if "sender_name" not in columns:
@@ -63,9 +75,60 @@ class Store:
             for name in DISPLAY_FIELDS:
                 if name not in task_columns:
                     db.execute(f"ALTER TABLE tasks ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
+            if "transcribe_voice" not in task_columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN transcribe_voice INTEGER NOT NULL DEFAULT 0")
 
     def mark_inflight_uncertain(self):
         self.execute("UPDATE deliveries SET status='uncertain',error='程序关闭时请求结果未知。请先在飞书群核对，避免重复通知。' WHERE status='sending'")
+        # Transcription has no external send effect: interrupted work is safe to retry.
+        self.execute("UPDATE voice_jobs SET status='retry',next_attempt=0 WHERE status='processing'")
+
+    def enqueue_voice(self, task, message_id, version, *, media_key, source, sender_name, link,
+                      caption, duration, byte_size, kind, original_at, event_at, received_at):
+        with self.db() as db:
+            inserted = db.execute("INSERT OR IGNORE INTO seen VALUES(?,?,?)", (task["id"], message_id, version))
+            if not inserted.rowcount:
+                return 0
+            db.execute("""INSERT INTO voice_jobs(task_id,message_id,version,media_key,source,sender_name,link,
+                caption,duration,byte_size,kind,original_at,event_at,received_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (task["id"],message_id,version,media_key,source,sender_name,link,caption,duration,byte_size,
+                 kind,original_at,event_at,received_at))
+            return 1
+
+    def claim_voice(self):
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            # Do not resurrect stale transcription when a task is re-enabled later.
+            db.execute("""UPDATE voice_jobs SET status='cancelled' WHERE status IN ('pending','retry') AND task_id IN
+                (SELECT t.id FROM tasks t JOIN robots r ON r.id=t.robot_id
+                 WHERE t.enabled=0 OR t.transcribe_voice=0 OR r.enabled=0)""")
+            row = db.execute("""SELECT v.*,t.chat_id FROM voice_jobs v JOIN tasks t ON t.id=v.task_id
+                JOIN robots r ON r.id=t.robot_id WHERE v.status IN ('pending','retry') AND v.next_attempt<=?
+                AND t.enabled=1 AND t.transcribe_voice=1 AND r.enabled=1 ORDER BY v.id LIMIT 1""", (time.time(),)).fetchone()
+            if row is None:
+                return None
+            db.execute("UPDATE voice_jobs SET status='processing',attempts=attempts+1 WHERE id=?", (row["id"],))
+            return {**dict(row), "attempts": row["attempts"] + 1}
+
+    def finish_voice(self, job, chunks, *, filtered=False):
+        # Result delivery and job completion commit together, so restarts cannot duplicate a result.
+        with self.db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            current = db.execute("SELECT status FROM voice_jobs WHERE id=?", (job["id"],)).fetchone()
+            if current is None or current["status"] != "processing":
+                return 0
+            task = db.execute("SELECT t.*,r.enabled AS robot_enabled FROM tasks t JOIN robots r ON r.id=t.robot_id WHERE t.id=?", (job["task_id"],)).fetchone()
+            if not task or not task["enabled"] or not task["robot_enabled"] or not task["transcribe_voice"] or job["event_at"] < task["enabled_since"]:
+                db.execute("UPDATE voice_jobs SET status='cancelled' WHERE id=?", (job["id"],))
+                return 0
+            if not filtered:
+                for index, body in enumerate(chunks, 1):
+                    db.execute("""INSERT INTO deliveries(task_id,robot_id,source,message_id,sender_name,kind,body,link,
+                        original_at,event_at,received_at,part,parts,stale_minutes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        (task["id"],task["robot_id"],job["source"],job["message_id"],job["sender_name"],job["kind"],body,
+                         job["link"],job["original_at"],job["event_at"],job["received_at"],index,len(chunks),task["stale_minutes"]))
+            db.execute("UPDATE voice_jobs SET status=? WHERE id=?", ("filtered" if filtered else "done",job["id"]))
+            return 0 if filtered else len(chunks)
 
     @contextmanager
     def db(self):

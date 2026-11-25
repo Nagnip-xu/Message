@@ -18,6 +18,7 @@ from .feishu import Sender, validate_webhook
 from .heartbeat import Heartbeat
 from .store import DISPLAY_FIELDS, Store
 from .telegram import TelegramService, error_text
+from .voice import VoiceWorker
 
 
 class SettingsInput(BaseModel):
@@ -83,6 +84,7 @@ class TaskInput(BaseModel):
     show_original_time: bool = False
     show_forward_time: bool = False
     show_link: bool = False
+    transcribe_voice: bool = True
 
 
 class TaskUpdate(BaseModel):
@@ -98,6 +100,7 @@ class TaskUpdate(BaseModel):
     show_original_time: bool | None = None
     show_forward_time: bool | None = None
     show_link: bool | None = None
+    transcribe_voice: bool | None = None
 
 
 class SenderFilterInput(BaseModel):
@@ -114,6 +117,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
     config = config or Config()
     telegram = telegram or TelegramService(store, config)
     sender = sender or Sender(store)
+    voice = VoiceWorker(store, telegram)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -121,7 +125,8 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         if start_workers:
             store.mark_inflight_uncertain()
             workers = [asyncio.create_task(telegram.run()), asyncio.create_task(sender.run()),
-                       asyncio.create_task(Heartbeat(store, config, telegram).run())]
+                       asyncio.create_task(Heartbeat(store, config, telegram).run()),
+                       asyncio.create_task(voice.run())]
             store.log("消息中继服务已启动")
         yield
         for task in workers:
@@ -194,7 +199,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
           (SELECT COUNT(*) FROM deliveries d WHERE d.task_id=t.id AND status IN ('pending','sending','retry')) AS pending,
           (SELECT MAX(sent_at) FROM deliveries d WHERE d.task_id=t.id AND status='sent') AS last_sent_at
           FROM tasks t JOIN robots r ON r.id=t.robot_id ORDER BY t.id DESC""")
-        return {"telegram": telegram.status(), "stats": store.stats(), "settings": config.public(),
+        return {"telegram": telegram.status(), "voice": voice.status(), "stats": store.stats(), "settings": config.public(),
                 "robots": [public_robot(r) for r in store.all("SELECT * FROM robots ORDER BY id DESC")],
                 "tasks": tasks, "system_logs": store.all("SELECT * FROM system_logs ORDER BY id DESC LIMIT 15"),
                 "server_time": time.time()}
@@ -298,12 +303,12 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         now = int(time.time())
         task_id = store.execute("""INSERT INTO tasks(name,chat_id,chat_title,topic_id,topic_title,robot_id,
             edits,include_words,exclude_words,stale_minutes,catch_up,enabled_since,cursor,last_scan,created_at,sender_ids,sender_names,
-            show_title,show_sender,show_original_time,show_forward_time,show_link)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
+            show_title,show_sender,show_original_time,show_forward_time,show_link,transcribe_voice)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
             value.robot_id, value.edits, value.include_words, value.exclude_words, value.stale_minutes,
             value.catch_up, now, source["cursor"], now, now,
             ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders),
-            *(getattr(value, field) for field in DISPLAY_FIELDS)))
+            *(getattr(value, field) for field in DISPLAY_FIELDS), value.transcribe_voice))
         store.log(f"监听任务已启用：{value.name.strip()}，从现在开始接收新消息")
         return task_by_id(task_id)
 
@@ -316,8 +321,9 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
             sender_ids, sender_names = ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders)
         display_values = [old[field] if getattr(value, field) is None else getattr(value, field) for field in DISPLAY_FIELDS]
         display_sql = ",".join(f"{field}=?" for field in DISPLAY_FIELDS)
-        store.execute(f"UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=?,sender_ids=?,sender_names=?,{display_sql} WHERE id=?",
-                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, sender_ids, sender_names, *display_values, task_id))
+        transcribe_voice = old["transcribe_voice"] if value.transcribe_voice is None else value.transcribe_voice
+        store.execute(f"UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=?,sender_ids=?,sender_names=?,{display_sql},transcribe_voice=? WHERE id=?",
+                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, sender_ids, sender_names, *display_values, transcribe_voice, task_id))
         return task_by_id(task_id)
 
     @app.post("/api/tasks/{task_id}/toggle")

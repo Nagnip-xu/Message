@@ -1,0 +1,4 @@
+# Optional isolated Python environment for CPU speech recognition.
+# The relay's normal environment does not import these packages.
+sherpa-onnx==1.12.26
+numpy>=1.26,<3

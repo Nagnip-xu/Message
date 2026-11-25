@@ -316,10 +316,15 @@ class TelegramService:
             return 0
         body = message.message or ""
         media = getattr(message, "media", None)
-        if media and not isinstance(media, types.MessageMediaWebPage):
+        document = getattr(media, "document", None)
+        voice = next((a for a in getattr(document, "attributes", [])
+                      if isinstance(a, types.DocumentAttributeAudio) and a.voice), None)
+        transcribe = voice is not None and task.get("transcribe_voice", False)
+        if media and not isinstance(media, types.MessageMediaWebPage) and not transcribe:
             label = "图片" if isinstance(media, types.MessageMediaPhoto) else "附件"
             body += f"\n\n［含{label}，原文件未转发］"
-        if not body.strip() or not matches_words(body, task["include_words"], task["exclude_words"]):
+        # Voice keywords must be evaluated on the transcription, not the attachment placeholder.
+        if not transcribe and (not body.strip() or not matches_words(body, task["include_words"], task["exclude_words"])):
             return 0
         sender_name = (getattr(message, "post_author", None) or "").strip()
         if not sender_name:
@@ -343,6 +348,12 @@ class TelegramService:
         else:
             link = ""
         source = task["chat_title"] + (f" / {task['topic_title']}" if task["topic_id"] else "")
+        if transcribe:
+            return self.store.enqueue_voice(task, message.id, version, media_key=str(document.id),
+                source=source, sender_name=sender_name, link=link, caption=body,
+                duration=int(voice.duration or 0), byte_size=document.size or 0,
+                kind="edit" if edited else ("catchup" if recovered else "new"),
+                original_at=original_at,event_at=event_at,received_at=time.time())
         return self.store.enqueue(task, message.id, version, split_text(body),
             kind="edit" if edited else ("catchup" if recovered else "new"), source=source, sender_name=sender_name, link=link,
             original_at=original_at, event_at=event_at, received_at=time.time())
