@@ -184,8 +184,16 @@ def test_reply_migration_keeps_old_pending_text_and_voice_jobs(store,tmp_path):
     queue(store,task,text='迁移前待发送的文字')
     assert asyncio.run(service_for(store,tmp_path).ingest(task,speech(),CHAT)) == 1
     with store.db() as db:
-        db.execute('ALTER TABLE deliveries DROP COLUMN reply_context')
-        db.execute('ALTER TABLE voice_jobs DROP COLUMN reply_context')
+        # The deployment's SQLite predates DROP COLUMN. Build the legacy schema explicitly.
+        import re
+        for table in ('deliveries','voice_jobs'):
+            schema = db.execute('SELECT sql FROM sqlite_master WHERE name=?',(table,)).fetchone()[0]
+            schema = re.sub(r",\s*reply_context TEXT NOT NULL DEFAULT ''",'',schema)
+            db.execute(schema.replace(f'CREATE TABLE {table}',f'CREATE TABLE {table}_legacy',1))
+            columns = ','.join(row[1] for row in db.execute(f'PRAGMA table_info({table})') if row[1] != 'reply_context')
+            db.execute(f'INSERT INTO {table}_legacy ({columns}) SELECT {columns} FROM {table}')
+            db.execute(f'DROP TABLE {table}')
+            db.execute(f'ALTER TABLE {table}_legacy RENAME TO {table}')
     migrated = Store(store.path)
     delivery = migrated.claim()
     assert delivery['body'] == '迁移前待发送的文字' and delivery['reply_context'] == ''
