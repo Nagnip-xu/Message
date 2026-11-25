@@ -86,8 +86,13 @@ def payload_for(job, secret="", now=None):
             metadata.append([{"tag": "text", "text": f"转发：{format_time(now)} (UTC+8)"}])
         if job.get("show_link") and job["link"]:
             metadata.append([{"tag": "a", "text": "在 Telegram 查看原消息", "href": job["link"]}])
-    if title or metadata:
+    image_key = job.get("image_key", "")
+    if image_key and not body and not title and not metadata:
+        payload = {"msg_type":"image","content":{"image_key":image_key}}
+    elif title or metadata or image_key:
         content = [[{"tag": "text", "text": line or " "}] for line in body.splitlines()]
+        if image_key:
+            content.append([{"tag":"img","image_key":image_key}])
         if metadata:
             content += [[{"tag": "text", "text": " "}], *metadata]
         post = {"content": content}

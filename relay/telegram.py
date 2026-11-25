@@ -375,11 +375,14 @@ class TelegramService:
         voice = next((a for a in getattr(document, "attributes", [])
                       if isinstance(a, types.DocumentAttributeAudio) and a.voice), None)
         transcribe = voice is not None and task.get("transcribe_voice", False)
-        if media and not isinstance(media, types.MessageMediaWebPage) and not transcribe and not decorative:
+        photo = getattr(media, "photo", None)
+        image = bool(photo or (not decorative and getattr(document,"mime_type","") in
+                     {"image/jpeg","image/png","image/webp","image/bmp"})) and task.get("forward_images", True)
+        if media and not isinstance(media, types.MessageMediaWebPage) and not transcribe and not decorative and not image:
             label = "图片" if isinstance(media, types.MessageMediaPhoto) else "附件"
             body += f"\n\n［含{label}，原文件未转发］"
         # Voice keywords must be evaluated on the transcription, not the attachment placeholder.
-        if not transcribe and (not body.strip() or not matches_words(body, task["include_words"], task["exclude_words"])):
+        if not transcribe and ((not body.strip() and not image) or not matches_words(body, task["include_words"], task["exclude_words"])):
             return 0
         sender_name = (getattr(message, "post_author", None) or "").strip()
         if not sender_name:
@@ -406,6 +409,11 @@ class TelegramService:
         else:
             link = ""
         source = task["chat_title"] + (f" / {task['topic_title']}" if task["topic_id"] else "")
+        if image:
+            return self.store.enqueue_image(task,message.id,version,media_key=("photo:" if photo else "document:")+str(media_id),
+                source=source,sender_name=sender_name,link=link,caption=body,reply_context=reply_context,
+                kind="edit" if edited else ("catchup" if recovered else "new"),
+                original_at=original_at,event_at=event_at,received_at=time.time())
         if transcribe:
             return self.store.enqueue_voice(task, message.id, version, media_key=str(document.id),
                 source=source, sender_name=sender_name, link=link, caption=body,

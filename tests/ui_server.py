@@ -64,6 +64,15 @@ sender = Sender(store)
 # The test webhook is intercepted in memory, no HTTP request leaves the process.
 sender.client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, json={"code": 0})))
 app = create_app(store, config, telegram, sender)
+# Image API tests use a second in-memory transport; no credentials leave the fixture.
+def image_response(request):
+    import json
+    if request.url.path.endswith('/internal'):
+        if json.loads(request.read())['app_secret'] == 'bad-test-secret':
+            return httpx.Response(200,json={'code':99991661})
+        return httpx.Response(200,json={'code':0,'tenant_access_token':'fixture-token','expire':7200})
+    return httpx.Response(200,json={'code':0,'data':{'image_key':'img_fixture'}})
+app.state.image_uploader.client = httpx.AsyncClient(transport=httpx.MockTransport(image_response))
 
 
 @app.post("/__test__/reset")

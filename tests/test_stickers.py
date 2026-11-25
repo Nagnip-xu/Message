@@ -62,7 +62,10 @@ def test_regular_files_videos_and_images_are_not_mistaken_for_stickers(store,tmp
     message = document_message(mime,[types.DocumentAttributeFilename(file_name="文件")])
     service = TelegramService(store,Config(tmp_path/"settings.json"))
     assert asyncio.run(service.ingest(task,message,SimpleNamespace(noforwards=False,forum=False))) == 1
-    assert "含附件" in store.one("SELECT body FROM deliveries")["body"]
+    if mime == 'image/webp':
+        assert store.one('SELECT media_key FROM image_jobs')['media_key'] == 'document:501'
+    else:
+        assert "含附件" in store.one("SELECT body FROM deliveries")["body"]
 
 
 def test_inline_emoji_and_reply_text_are_preserved(store,tmp_path):

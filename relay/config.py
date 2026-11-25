@@ -13,7 +13,8 @@ DATA.mkdir(parents=True, exist_ok=True)
 class Config:
     def __init__(self, path: Path | None = None):
         self.path = path or DATA / "settings.json"
-        self.values = {"api_id": 0, "api_hash": "", "proxy": "", "catchup_limit": 500, "heartbeat_enabled": True}
+        self.values = {"api_id": 0, "api_hash": "", "proxy": "", "catchup_limit": 500, "heartbeat_enabled": True,
+                       "feishu_app_id": "", "feishu_app_secret": ""}
         if self.path.exists():
             self.values.update(json.loads(self.path.read_text(encoding="utf-8-sig")))
 

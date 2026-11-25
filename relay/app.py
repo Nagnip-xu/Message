@@ -19,6 +19,7 @@ from .heartbeat import Heartbeat
 from .store import DISPLAY_FIELDS, Store
 from .telegram import TelegramService, error_text
 from .voice import VoiceWorker
+from .images import ImageError, ImageUploader, ImageWorker
 
 
 class SettingsInput(BaseModel):
@@ -42,6 +43,12 @@ class PhoneInput(BaseModel):
 
 class HeartbeatInput(BaseModel):
     enabled: bool
+
+
+class ImageSettingsInput(BaseModel):
+    app_id: str = Field(default="",max_length=100,pattern=r"^(cli_[A-Za-z0-9]+)?$")
+    app_secret: str | None = Field(default=None,max_length=500)
+    clear: bool = False
 
 
 class VerifyInput(BaseModel):
@@ -85,6 +92,7 @@ class TaskInput(BaseModel):
     show_forward_time: bool = False
     show_link: bool = False
     transcribe_voice: bool = True
+    forward_images: bool = True
 
 
 class TaskUpdate(BaseModel):
@@ -101,6 +109,7 @@ class TaskUpdate(BaseModel):
     show_forward_time: bool | None = None
     show_link: bool | None = None
     transcribe_voice: bool | None = None
+    forward_images: bool | None = None
 
 
 class SenderFilterInput(BaseModel):
@@ -118,6 +127,8 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
     telegram = telegram or TelegramService(store, config)
     sender = sender or Sender(store)
     voice = VoiceWorker(store, telegram)
+    uploader = ImageUploader(config)
+    images = ImageWorker(store,telegram,uploader)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -126,7 +137,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
             store.mark_inflight_uncertain()
             workers = [asyncio.create_task(telegram.run()), asyncio.create_task(sender.run()),
                        asyncio.create_task(Heartbeat(store, config, telegram).run()),
-                       asyncio.create_task(voice.run())]
+                       asyncio.create_task(voice.run()),asyncio.create_task(images.run())]
             store.log("消息中继服务已启动")
         yield
         for task in workers:
@@ -136,9 +147,11 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
                 await task
         await telegram.close()
         await sender.close()
+        await uploader.close()
 
     app = FastAPI(title="消息中继", version="1.1.3", lifespan=lifespan)
     app.state.store, app.state.telegram = store, telegram
+    app.state.image_uploader = uploader
 
     @app.middleware("http")
     async def same_origin(request: Request, call_next):
@@ -160,6 +173,10 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
     @app.exception_handler(ValueError)
     async def invalid(request, exc):
         return JSONResponse({"detail": str(exc)}, 400)
+
+    @app.exception_handler(ImageError)
+    async def image_error(request,exc):
+        return JSONResponse({"detail":str(exc)},502 if exc.retryable else 400)
 
     @app.exception_handler(errors.RPCError)
     async def telegram_error(request, exc):
@@ -199,7 +216,7 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
           (SELECT COUNT(*) FROM deliveries d WHERE d.task_id=t.id AND status IN ('pending','sending','retry')) AS pending,
           (SELECT MAX(sent_at) FROM deliveries d WHERE d.task_id=t.id AND status='sent') AS last_sent_at
           FROM tasks t JOIN robots r ON r.id=t.robot_id ORDER BY t.id DESC""")
-        return {"telegram": telegram.status(), "voice": voice.status(), "stats": store.stats(), "settings": config.public(),
+        return {"telegram": telegram.status(), "voice": voice.status(), "images":images.status(), "stats": store.stats(), "settings": config.public(),
                 "robots": [public_robot(r) for r in store.all("SELECT * FROM robots ORDER BY id DESC")],
                 "tasks": tasks, "system_logs": store.all("SELECT * FROM system_logs ORDER BY id DESC LIMIT 15"),
                 "server_time": time.time()}
@@ -224,6 +241,28 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         config.save(heartbeat_enabled=value.enabled)
         store.log("每日北京时间 00:00 运行状态提醒已" + ("启用" if value.enabled else "关闭"))
         return config.public()
+
+    @app.put('/api/image-settings')
+    async def image_settings(value: ImageSettingsInput):
+        if value.clear:
+            config.save(feishu_app_id='',feishu_app_secret='',feishu_image_verified=False)
+        else:
+            old_id = config.values['feishu_app_id']
+            secret = value.app_secret.strip() if value.app_secret is not None else config.values['feishu_app_secret']
+            if not value.app_id or not secret:
+                raise ValueError('请填写 App ID 和 App Secret；留空 App Secret 仅用于保留原值')
+            if value.app_id != old_id and value.app_secret is None:
+                raise ValueError('更换 App ID 时请同时填写对应 App Secret')
+            changed = (value.app_id,secret) != (old_id,config.values['feishu_app_secret'])
+            config.save(feishu_app_id=value.app_id,feishu_app_secret=secret,
+                feishu_image_verified=False if changed else config.values.get('feishu_image_verified',False))
+        store.log('飞书图片上传应用配置已更新')
+        return images.status()
+
+    @app.post('/api/image-settings/test')
+    async def test_image_upload():
+        await uploader.test()
+        return {'message':'图片上传测试通过。请再向目标机器人发送测试图片，确认群内可以显示。',**images.status()}
 
     @app.post("/api/telegram/code")
     async def code(value: PhoneInput):
@@ -295,6 +334,17 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
           VALUES(?,?,'test',?,?,?,?)""", (robot_id, "消息中继", "飞书机器人连接测试。\n收到此消息表示机器人已接受推送。\n请同时确认手机通知、声音及群免打扰设置。", now, now, now))
         return {"id": job_id, "message": "测试消息已排队，请在发送记录和飞书群中确认结果"}
 
+    @app.post('/api/robots/{robot_id}/test-image')
+    async def test_robot_image(robot_id:int):
+        robot = robot_by_id(robot_id)
+        if not robot['enabled']:
+            raise ValueError('请先启用此机器人')
+        key = await uploader.test()
+        now = time.time()
+        job_id = store.execute("""INSERT INTO deliveries(robot_id,source,kind,body,original_at,event_at,received_at,image_key)
+            VALUES(?,'消息中继','test','图片转发测试：应在下方显示一张绿色图片。',?,?,?,?)""",(robot_id,now,now,now,key))
+        return {'id':job_id,'message':'测试图片已排队，请在飞书群确认图片实际显示。'}
+
     @app.post("/api/tasks")
     async def create_task(value: TaskInput):
         robot_by_id(value.robot_id)
@@ -303,12 +353,12 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         now = int(time.time())
         task_id = store.execute("""INSERT INTO tasks(name,chat_id,chat_title,topic_id,topic_title,robot_id,
             edits,include_words,exclude_words,stale_minutes,catch_up,enabled_since,cursor,last_scan,created_at,sender_ids,sender_names,
-            show_title,show_sender,show_original_time,show_forward_time,show_link,transcribe_voice)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
+            show_title,show_sender,show_original_time,show_forward_time,show_link,transcribe_voice,forward_images)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
             value.robot_id, value.edits, value.include_words, value.exclude_words, value.stale_minutes,
             value.catch_up, now, source["cursor"], now, now,
             ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders),
-            *(getattr(value, field) for field in DISPLAY_FIELDS), value.transcribe_voice))
+            *(getattr(value, field) for field in DISPLAY_FIELDS), value.transcribe_voice,value.forward_images))
         store.log(f"监听任务已启用：{value.name.strip()}，从现在开始接收新消息")
         return task_by_id(task_id)
 
@@ -322,8 +372,9 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         display_values = [old[field] if getattr(value, field) is None else getattr(value, field) for field in DISPLAY_FIELDS]
         display_sql = ",".join(f"{field}=?" for field in DISPLAY_FIELDS)
         transcribe_voice = old["transcribe_voice"] if value.transcribe_voice is None else value.transcribe_voice
-        store.execute(f"UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=?,sender_ids=?,sender_names=?,{display_sql},transcribe_voice=? WHERE id=?",
-                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, sender_ids, sender_names, *display_values, transcribe_voice, task_id))
+        forward_images = old['forward_images'] if value.forward_images is None else value.forward_images
+        store.execute(f"UPDATE tasks SET name=?,edits=?,include_words=?,exclude_words=?,stale_minutes=?,catch_up=?,sender_ids=?,sender_names=?,{display_sql},transcribe_voice=?,forward_images=? WHERE id=?",
+                     (value.name.strip(), value.edits, value.include_words, value.exclude_words, value.stale_minutes, value.catch_up, sender_ids, sender_names, *display_values, transcribe_voice,forward_images,task_id))
         return task_by_id(task_id)
 
     @app.post("/api/tasks/{task_id}/toggle")
