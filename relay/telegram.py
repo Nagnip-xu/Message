@@ -76,6 +76,7 @@ class TelegramService:
         self.protected_warned = set()
         self.recovery_warnings = {}
         self.recovery_backlog = False
+        self.reply_cache = {}
 
     def status(self):
         transport_connected = bool(self.client and self.client.is_connected())
@@ -295,6 +296,52 @@ class TelegramService:
         except Exception as exc:
             self.store.log(f"处理 Telegram 更新失败：{error_text(exc)}", "error")
 
+    async def reply_context_for(self, message, chat):
+        header = getattr(message, "reply_to", None)
+        if not isinstance(header, types.MessageReplyHeader) or not header.reply_to_msg_id:
+            return ""
+        # Forum membership is encoded as a reply to the topic root, not a quoted message.
+        if header.forum_topic and header.reply_to_msg_id == (header.reply_to_top_id or header.reply_to_msg_id):
+            return ""
+        key = (utils.get_peer_id(header.reply_to_peer_id or message.peer_id), header.reply_to_msg_id)
+        cached = self.reply_cache.get(key)
+        if cached and time.time() - cached[0] < 60:
+            return cached[1]
+        unavailable = "↳ 回复：原消息不可读取"
+        try:
+            original = await asyncio.wait_for(message.get_reply_message(), timeout=3)
+            if not isinstance(original, types.Message):
+                return unavailable
+            if original.noforwards:
+                return "↳ 回复：原消息开启内容保护，无法引用"
+            if utils.get_peer_id(original.peer_id) != utils.get_peer_id(message.peer_id):
+                origin_chat = await asyncio.wait_for(original.get_chat(), timeout=2)
+                if origin_chat is None:
+                    return unavailable
+                if getattr(origin_chat, "noforwards", False):
+                    return "↳ 回复：原消息开启内容保护，无法引用"
+            name = (original.post_author or "").strip()
+            if not name:
+                try:
+                    sender = await asyncio.wait_for(original.get_sender(), timeout=2)
+                    name = utils.get_display_name(sender) if sender else ""
+                except Exception:
+                    name = ""
+            name = " ".join((name or ("频道发布" if original.post else "匿名用户")).split())[:60]
+            text = " ".join((original.message or "").split())
+            if not text:
+                text = "［图片］" if original.photo else "［语音］" if original.voice else "［贴纸］" if original.sticker else "［附件或无文字消息］"
+            if len(text) > 200:
+                text = text[:200] + "…"
+            result = f"↳ 回复{name}：{text}"
+            if len(self.reply_cache) >= 256:
+                self.reply_cache.pop(next(iter(self.reply_cache)))
+            self.reply_cache[key] = (time.time(), result)
+            return result
+        except Exception:
+            # Missing access, deletion or a slow lookup must never drop the current reply.
+            return unavailable
+
     async def ingest(self, task, message, chat, *, edited=False, recovered=False):
         if not isinstance(message, types.Message) or not message.date:
             return 0
@@ -347,6 +394,9 @@ class TelegramService:
             sender_name = "频道发布"
         media_id = getattr(getattr(media, "photo", None), "id", None) or getattr(getattr(media, "document", None), "id", None)
         version = hashlib.sha256(f"{body}\0{media_id}".encode()).hexdigest()
+        if self.store.one("SELECT 1 FROM seen WHERE task_id=? AND message_id=? AND version=?", (task["id"],message.id,version)):
+            return 0
+        reply_context = await self.reply_context_for(message, chat)
         username = getattr(chat, "username", None)
         peer_id = utils.get_peer_id(message.peer_id)
         if username:
@@ -361,10 +411,10 @@ class TelegramService:
                 source=source, sender_name=sender_name, link=link, caption=body,
                 duration=int(voice.duration or 0), byte_size=document.size or 0,
                 kind="edit" if edited else ("catchup" if recovered else "new"),
-                original_at=original_at,event_at=event_at,received_at=time.time())
+                original_at=original_at,event_at=event_at,received_at=time.time(),reply_context=reply_context)
         return self.store.enqueue(task, message.id, version, split_text(body),
             kind="edit" if edited else ("catchup" if recovered else "new"), source=source, sender_name=sender_name, link=link,
-            original_at=original_at, event_at=event_at, received_at=time.time())
+            original_at=original_at, event_at=event_at, received_at=time.time(),reply_context=reply_context)
 
     async def recover(self):
         if self.recovery_lock.locked():

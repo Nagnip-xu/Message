@@ -67,13 +67,17 @@ def payload_for(job, secret="", now=None):
     task_message = kind in ("new", "edit", "catchup")
     title = f"【{label}】{job['source'][:120]}{suffix}" if task_message and job.get("show_title") else ""
     body = job["body"]
+    reply_context = job.get("reply_context", "") if task_message else ""
+    if reply_context:
+        speaker = " ".join((job.get("sender_name") or "匿名用户").split())[:60]
+        body = (reply_context + "\n" if job["part"] == 1 else "") + f"{speaker}：{body}"
     if task_message and not title:
         # Preserve edit / recovery context and chunk order even in body-only mode.
         prefix = f"【{label}{suffix}】" if delayed or kind != "new" or suffix else ""
         body = prefix + body
     metadata = []
     if task_message:
-        if job.get("show_sender") and job.get("sender_name"):
+        if job.get("show_sender") and job.get("sender_name") and not reply_context:
             metadata.append([{"tag": "text", "text": f"发送人：{job['sender_name']}"}])
         # A late trading signal must still carry its original time.
         if job.get("show_original_time") or delayed:

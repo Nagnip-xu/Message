@@ -68,6 +68,11 @@ class Store:
             columns = {row[1] for row in db.execute("PRAGMA table_info(deliveries)")}
             if "sender_name" not in columns:
                 db.execute("ALTER TABLE deliveries ADD COLUMN sender_name TEXT NOT NULL DEFAULT ''")
+            if "reply_context" not in columns:
+                db.execute("ALTER TABLE deliveries ADD COLUMN reply_context TEXT NOT NULL DEFAULT ''")
+            voice_columns = {row[1] for row in db.execute("PRAGMA table_info(voice_jobs)")}
+            if "reply_context" not in voice_columns:
+                db.execute("ALTER TABLE voice_jobs ADD COLUMN reply_context TEXT NOT NULL DEFAULT ''")
             task_columns = {row[1] for row in db.execute("PRAGMA table_info(tasks)")}
             for name in ("sender_ids", "sender_names"):
                 if name not in task_columns:
@@ -84,15 +89,15 @@ class Store:
         self.execute("UPDATE voice_jobs SET status='retry',next_attempt=0 WHERE status='processing'")
 
     def enqueue_voice(self, task, message_id, version, *, media_key, source, sender_name, link,
-                      caption, duration, byte_size, kind, original_at, event_at, received_at):
+                      caption, duration, byte_size, kind, original_at, event_at, received_at, reply_context=""):
         with self.db() as db:
             inserted = db.execute("INSERT OR IGNORE INTO seen VALUES(?,?,?)", (task["id"], message_id, version))
             if not inserted.rowcount:
                 return 0
             db.execute("""INSERT INTO voice_jobs(task_id,message_id,version,media_key,source,sender_name,link,
-                caption,duration,byte_size,kind,original_at,event_at,received_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                caption,duration,byte_size,kind,original_at,event_at,received_at,reply_context) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (task["id"],message_id,version,media_key,source,sender_name,link,caption,duration,byte_size,
-                 kind,original_at,event_at,received_at))
+                 kind,original_at,event_at,received_at,reply_context))
             return 1
 
     def claim_voice(self):
@@ -124,9 +129,9 @@ class Store:
             if not filtered:
                 for index, body in enumerate(chunks, 1):
                     db.execute("""INSERT INTO deliveries(task_id,robot_id,source,message_id,sender_name,kind,body,link,
-                        original_at,event_at,received_at,part,parts,stale_minutes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                        original_at,event_at,received_at,part,parts,stale_minutes,reply_context) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (task["id"],task["robot_id"],job["source"],job["message_id"],job["sender_name"],job["kind"],body,
-                         job["link"],job["original_at"],job["event_at"],job["received_at"],index,len(chunks),task["stale_minutes"]))
+                         job["link"],job["original_at"],job["event_at"],job["received_at"],index,len(chunks),task["stale_minutes"],job.get("reply_context", "")))
             db.execute("UPDATE voice_jobs SET status=? WHERE id=?", ("filtered" if filtered else "done",job["id"]))
             return 0 if filtered else len(chunks)
 
@@ -160,16 +165,16 @@ class Store:
     def log(self, message, level="info"):
         self.execute("INSERT INTO system_logs(level,message,created_at) VALUES(?,?,?)", (level, message, time.time()))
 
-    def enqueue(self, task, message_id, version, chunks, *, kind, source, sender_name="", link, original_at, event_at, received_at):
+    def enqueue(self, task, message_id, version, chunks, *, kind, source, sender_name="", link, original_at, event_at, received_at, reply_context=""):
         with self.db() as db:
             inserted = db.execute("INSERT OR IGNORE INTO seen VALUES(?,?,?)", (task["id"], message_id, version))
             if not inserted.rowcount:
                 return 0
             for index, body in enumerate(chunks, 1):
                 db.execute("""INSERT INTO deliveries(task_id,robot_id,source,message_id,sender_name,kind,body,link,
-                  original_at,event_at,received_at,part,parts,stale_minutes) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                  original_at,event_at,received_at,part,parts,stale_minutes,reply_context) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                   (task["id"], task["robot_id"], source, message_id, sender_name, kind, body, link, original_at, event_at,
-                   received_at, index, len(chunks), task["stale_minutes"]))
+                   received_at, index, len(chunks), task["stale_minutes"], reply_context))
             return len(chunks)
 
     def claim(self):
