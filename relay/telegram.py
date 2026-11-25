@@ -16,6 +16,7 @@ from .store import Store
 
 HEALTH_TIMEOUT = 15
 HISTORY_TIMEOUT = 45
+HISTORY_PAGE_WAIT = 3
 
 
 def topic_id_for(message, is_forum=False):
@@ -369,14 +370,23 @@ class TelegramService:
             for task in tasks:
                 grouped.setdefault(task["chat_id"], []).append(task)
             for chat_id, chat_tasks in grouped.items():
+                retry_key = f"telegram-history-retry:{chat_id}"
+                retry = self.store.one("SELECT value FROM runtime_state WHERE key=?", (retry_key,))
+                if retry and retry["value"] > time.time():
+                    continue
                 try:
                     scan_started = time.time()
                     chat = await asyncio.wait_for(client.get_entity(chat_id), timeout=20)
                     limit = self.config.values["catchup_limit"]
                     min_cursor = min(t["cursor"] for t in chat_tasks)
+                    history_timeout = HISTORY_TIMEOUT + (limit // 100) * HISTORY_PAGE_WAIT
                     async def read_new():
-                        return [m async for m in client.iter_messages(chat, min_id=min_cursor, reverse=True, limit=limit)]
-                    messages = await asyncio.wait_for(read_new(), timeout=HISTORY_TIMEOUT)
+                        result = []
+                        async for m in client.iter_messages(chat, min_id=min_cursor, reverse=True, limit=limit, wait_time=HISTORY_PAGE_WAIT):
+                            self.last_health_at = time.time()
+                            result.append(m)
+                        return result
+                    messages = await asyncio.wait_for(read_new(), timeout=history_timeout)
                     self.last_health_at = time.time()
                     if len(messages) >= limit:
                         self.recovery_backlog = True
@@ -390,8 +400,12 @@ class TelegramService:
                     recent = []
                     if any(t["edits"] for t in chat_tasks):
                         async def read_recent():
-                            return [m async for m in client.iter_messages(chat, limit=limit)]
-                        recent = await asyncio.wait_for(read_recent(), timeout=HISTORY_TIMEOUT)
+                            result = []
+                            async for m in client.iter_messages(chat, limit=limit, wait_time=HISTORY_PAGE_WAIT):
+                                self.last_health_at = time.time()
+                                result.append(m)
+                            return result
+                        recent = await asyncio.wait_for(read_recent(), timeout=history_timeout)
                         self.last_health_at = time.time()
                     async with self.ingest_lock:
                         for task in chat_tasks:
@@ -405,7 +419,12 @@ class TelegramService:
                                     await self.ingest(task, message, chat, edited=True, recovered=True)
                             cursor = max((m.id for m in messages), default=task["cursor"])
                             self.store.execute("UPDATE tasks SET cursor=MAX(cursor,?),last_scan=? WHERE id=?", (cursor, scan_started, task["id"]))
+                    self.store.execute("DELETE FROM runtime_state WHERE key=?", (retry_key,))
                 except Exception as exc:
+                    if isinstance(exc, errors.FloodWaitError):
+                        # Persist the server's cooldown across restarts; leave real-time updates active.
+                        self.store.execute("INSERT INTO runtime_state VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                                           (retry_key, time.time() + exc.seconds + 15))
                     warning = f"{chat_tasks[0]['chat_title']} 补发检查失败：{error_text(exc)}"
                     if self.recovery_warnings.get(chat_id) != warning:
                         self.store.log(warning, "warning")

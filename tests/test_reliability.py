@@ -196,7 +196,8 @@ def test_recovery_drains_oldest_messages_across_multiple_batches_without_skippin
                                   message=f"message {i}") for i in range(101, 106)]
         chat = SimpleNamespace(noforwards=False, forum=False, username=None)
         calls = []
-        async def history(_, *, min_id, reverse, limit):
+        async def history(_, *, min_id, reverse, limit, wait_time):
+            assert wait_time == 3
             calls.append((min_id, reverse))
             for message in [m for m in messages if m.id > min_id][:limit]:
                 yield message
@@ -217,6 +218,7 @@ def test_recovery_drains_oldest_messages_across_multiple_batches_without_skippin
 
 def test_recovery_timeout_preserves_cursor_and_surfaces_warning(store, tmp_path, monkeypatch):
     monkeypatch.setattr("relay.telegram.HISTORY_TIMEOUT", .02)
+    monkeypatch.setattr("relay.telegram.HISTORY_PAGE_WAIT", 0)
     async def run():
         task = make_route(store, edits=False)
         store.execute("UPDATE tasks SET cursor=100 WHERE id=?", (task["id"],))
@@ -230,6 +232,33 @@ def test_recovery_timeout_preserves_cursor_and_surfaces_warning(store, tmp_path,
             await service.recover()
         assert store.one("SELECT cursor FROM tasks")["cursor"] == 100
         assert service.recovery_warnings and service.last_recovery_at is None
+    asyncio.run(run())
+
+
+def test_recovery_respects_persisted_telegram_flood_cooldown(store, tmp_path):
+    from telethon import errors
+    async def run():
+        task = make_route(store, edits=False)
+        config = Config(tmp_path / "settings.json")
+        calls = []
+        async def history(*args, **kwargs):
+            calls.append(kwargs)
+            raise errors.FloodWaitError(request=None,capture=20)
+            yield None
+        client = SimpleNamespace(get_entity=AsyncMock(return_value=SimpleNamespace()),iter_messages=history)
+        service = TelegramService(store,config)
+        service.require = AsyncMock(return_value=client)
+        await service.recover()
+        key = f"telegram-history-retry:{task['chat_id']}"
+        assert store.one('SELECT value FROM runtime_state WHERE key=?',(key,))['value'] > time.time()+30
+        restarted = TelegramService(Store(store.path),config)
+        restarted.require = AsyncMock(return_value=client)
+        await restarted.recover()
+        assert len(calls) == 1
+        store.execute('UPDATE runtime_state SET value=0 WHERE key=?',(key,))
+        await restarted.recover()
+        assert len(calls) == 2
+        assert store.one('SELECT cursor FROM tasks')['cursor'] == task['cursor']
     asyncio.run(run())
 
 
