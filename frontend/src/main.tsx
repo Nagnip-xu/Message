@@ -11,6 +11,7 @@ const DISPLAY_OPTIONS = [
   ['show_original_time', '原消息时间', '显示 Telegram 消息的发布时间'],
   ['show_forward_time', '转发时间', '显示发送到飞书的时间'],
   ['show_link', '原消息链接', '显示跳转到 Telegram 的链接'],
+  ['show_reply_names', '回复中显示名称', '显示引用作者和回复者；超过 12 字的名称自动缩短'],
 ] as const;
 type DisplayField = typeof DISPLAY_OPTIONS[number][0];
 type MessageDisplay = Record<DisplayField, boolean>;
@@ -277,10 +278,10 @@ function TaskEditor({ state, task, close, reload, notify }: { state: State; task
 }
 
 function MessageDisplayFields({ value, onChange, source }: { value: MessageDisplay; onChange: (value: MessageDisplay) => void; source: string }) {
-  const compact = !Object.values(value).some(Boolean);
+  const compact = !DISPLAY_OPTIONS.some(([key]) => key !== "show_reply_names" && value[key]);
   return <section className="message-display-options" aria-label="飞书消息显示">
     <div className="form-intro"><h3>飞书消息显示</h3><p>默认仅发送正文。按需开启附加信息，只影响当前任务。</p></div>
-    {DISPLAY_OPTIONS.map(([key, label, help]) => <div className="switch-row" key={key}><div><strong>{label}</strong><p>{help}</p></div><Toggle label={`显示${label}`} checked={value[key]} onChange={() => onChange({ ...value, [key]: !value[key] })}/></div>)}
+    {DISPLAY_OPTIONS.map(([key, label, help]) => <div className="switch-row" key={key}><div><strong>{label}</strong><p>{help}</p></div><Toggle label={key === 'show_reply_names' ? label : `显示${label}`} checked={value[key]} onChange={() => onChange({ ...value, [key]: !value[key] })}/></div>)}
     <div className="display-preview-heading"><h3>显示预览 · 示例</h3><span>{compact ? '仅正文' : '正文与附加信息'}</span></div>
     <div className="delivery-preview" aria-label="飞书消息显示预览" aria-live="polite">
       {value.show_title && <strong>【新消息】{source}</strong>}
@@ -292,6 +293,8 @@ function MessageDisplayFields({ value, onChange, source }: { value: MessageDispl
         {value.show_link && <span className="delivery-preview-link">在 Telegram 查看原消息</span>}
       </div>}
     </div>
+    <div className="display-preview-heading"><h3>回复预览 · 示例</h3><span>{value.show_reply_names ? '显示名称 · 最多 12 字' : '隐藏名称'}</span></div>
+    <div className="delivery-preview" aria-label="回复消息显示预览" aria-live="polite"><p>{value.show_reply_names ? '↳ 回复张三：现在可以加仓吗？' : '↳ 回复：现在可以加仓吗？'}</p><p>{value.show_reply_names ? '李四：先等等，暂时别动。' : '先等等，暂时别动。'}</p></div>
     <p className="form-bottom-note">消息编辑、断线补发仍保留简短标记；延迟消息始终显示原消息时间。管理面板保留完整记录。</p>
   </section>;
 }

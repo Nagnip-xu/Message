@@ -90,17 +90,19 @@ def test_task_api_persists_independent_flags_preserves_omitted_and_allows_disabl
     saved = result.json()
     assert all(saved[field] == 0 for field in DISPLAY_FIELDS)
     path = f"/api/tasks/{saved['id']}"
-    saved = client.put(path, json={"name": "自选显示", "show_sender": True, "show_original_time": True}).json()
+    saved = client.put(path, json={"name": "自选显示", "show_sender": True, "show_original_time": True, "show_reply_names": True}).json()
     assert saved["show_sender"] == saved["show_original_time"] == 1
     assert saved["show_title"] == saved["show_forward_time"] == saved["show_link"] == 0
-    assert client.put(path, json={"name": "保留显示设置"}).json()["show_sender"] == 1
+    preserved = client.put(path, json={"name": "保留显示设置"}).json()
+    assert preserved["show_sender"] == preserved["show_reply_names"] == 1
+    assert client.put(path, json={"name": "关闭回复名称", "show_reply_names": False}).json()["show_reply_names"] == 0
     assert client.put(path, json={"name": "关闭发送人", "show_sender": False}).json()["show_sender"] == 0
     other = store.one("SELECT * FROM tasks WHERE id=?", (task["id"],))
     assert all(other[field] == 0 for field in DISPLAY_FIELDS)
     # New tasks may also explicitly opt in during creation.
-    body.update(chat_id=-100887766, show_title=True, show_link=True)
+    body.update(chat_id=-100887766, show_title=True, show_link=True, show_reply_names=True)
     created = client.post("/api/tasks", json=body).json()
-    assert created["show_title"] == created["show_link"] == 1
+    assert created["show_title"] == created["show_link"] == created["show_reply_names"] == 1
 
 
 def test_display_migration_preserves_existing_routes_sender_rules_and_queue(store):

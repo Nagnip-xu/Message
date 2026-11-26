@@ -92,6 +92,7 @@ class TaskInput(BaseModel):
     show_original_time: bool = False
     show_forward_time: bool = False
     show_link: bool = False
+    show_reply_names: bool = False
     transcribe_voice: bool = True
     forward_images: bool = True
 
@@ -109,6 +110,7 @@ class TaskUpdate(BaseModel):
     show_original_time: bool | None = None
     show_forward_time: bool | None = None
     show_link: bool | None = None
+    show_reply_names: bool | None = None
     transcribe_voice: bool | None = None
     forward_images: bool | None = None
 
@@ -354,8 +356,8 @@ def create_app(store=None, config=None, telegram=None, sender=None, start_worker
         now = int(time.time())
         task_id = store.execute("""INSERT INTO tasks(name,chat_id,chat_title,topic_id,topic_title,robot_id,
             edits,include_words,exclude_words,stale_minutes,catch_up,enabled_since,cursor,last_scan,created_at,sender_ids,sender_names,
-            show_title,show_sender,show_original_time,show_forward_time,show_link,transcribe_voice,forward_images)
-            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
+            show_title,show_sender,show_original_time,show_forward_time,show_link,show_reply_names,transcribe_voice,forward_images)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (value.name.strip(), value.chat_id, source["chat_title"], value.topic_id, source["topic_title"],
             value.robot_id, value.edits, value.include_words, value.exclude_words, value.stale_minutes,
             value.catch_up, now, source["cursor"], now, now,
             ",".join(str(s["id"]) for s in senders), "、".join(s["name"] for s in senders),

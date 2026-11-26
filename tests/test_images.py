@@ -119,6 +119,10 @@ def test_feishu_image_payloads_caption_metadata_signature_and_reply(store,tmp_pa
         assert 'title' not in post
         assert post['content']==[[{'tag':'text','text':'这张图说明趋势'}],[{'tag':'img','image_key':'img_one'}]]
         delivery.update(reply_context='↳ 回复张三：看这张图',sender_name='李四',show_sender=1,show_link=1)
+        text=str(payload_for(delivery)['content']['post']['zh_cn'])
+        assert '↳ 回复：看这张图' in text and '这张图说明趋势' in text
+        assert '张三' not in text and '李四' not in text
+        delivery['show_reply_names']=True
         post=payload_for(delivery)['content']['post']['zh_cn']
         text=str(post)
         assert '↳ 回复张三' in text and '李四：这张图说明趋势' in text

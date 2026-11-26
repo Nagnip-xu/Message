@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import DATA
 
-DISPLAY_FIELDS = ("show_title", "show_sender", "show_original_time", "show_forward_time", "show_link")
+DISPLAY_FIELDS = ("show_title", "show_sender", "show_original_time", "show_forward_time", "show_link", "show_reply_names")
 
 
 class Store:

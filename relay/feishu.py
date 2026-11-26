@@ -55,6 +55,21 @@ def format_time(timestamp):
     return datetime.fromtimestamp(timestamp, TZ).strftime("%m-%d %H:%M:%S")
 
 
+def short_reply_name(value):
+    name = " ".join(value.split())
+    return name if len(name) <= 12 else name[:12] + "…"
+
+
+def display_reply_context(context, show_names):
+    # Stored quotes keep their original author; display choices also apply to queued jobs.
+    prefix = "↳ 回复"
+    if context.startswith(prefix):
+        name, separator, quote = context[len(prefix):].partition("：")
+        if separator and name:
+            return prefix + (short_reply_name(name) if show_names else "") + "：" + quote
+    return context
+
+
 def payload_for(job, secret="", now=None):
     now = time.time() if now is None else now
     kind = job["kind"]
@@ -69,8 +84,10 @@ def payload_for(job, secret="", now=None):
     body = job["body"]
     reply_context = job.get("reply_context", "") if task_message else ""
     if reply_context:
-        speaker = " ".join((job.get("sender_name") or "匿名用户").split())[:60]
-        body = (reply_context + "\n" if job["part"] == 1 else "") + f"{speaker}：{body}"
+        show_names = bool(job.get("show_reply_names", False))
+        quote = display_reply_context(reply_context,show_names)
+        speaker = short_reply_name(job.get("sender_name") or "匿名用户")
+        body = (quote + "\n" if job["part"] == 1 else "") + (f"{speaker}：" if show_names else "") + body
     if task_message and not title:
         # Preserve edit / recovery context and chunk order even in body-only mode.
         prefix = f"【{label}{suffix}】" if delayed or kind != "new" or suffix else ""

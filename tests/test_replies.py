@@ -45,7 +45,7 @@ def test_reply_format_exact_body_only_and_durable_after_restart(store,tmp_path):
     job = Store(store.path).claim()
     assert job['body'] == '先等等，暂时别动。'
     payload = payload_for(job)
-    assert payload == {'msg_type':'text','content':{'text':'↳ 回复张三：现在可以加仓吗？\n李四：先等等，暂时别动。'}}
+    assert payload == {'msg_type':'text','content':{'text':'↳ 回复：现在可以加仓吗？\n先等等，暂时别动。'}}
     original.get_reply_message.assert_not_awaited()
     original.message = '被回复的原文修改了'
     assert asyncio.run(service.ingest(task,reply,CHAT)) == 0
@@ -163,7 +163,7 @@ def test_voice_reply_context_survives_transcription_without_affecting_keywords(s
         worker.recognize_job = AsyncMock(return_value='今天先观望。')
         assert await worker.process_once()
         text = payload_for(store.claim())['content']['text']
-        assert text == '↳ 回复张三：现在可以加仓吗？\n李四：语音转文字（9秒）：今天先观望。'
+        assert text == '↳ 回复：现在可以加仓吗？\n语音转文字（9秒）：今天先观望。'
     asyncio.run(run())
 
 
@@ -173,10 +173,39 @@ def test_rich_message_does_not_repeat_inline_reply_speaker(store,tmp_path):
     assert asyncio.run(service_for(store,tmp_path).ingest(task,reply,CHAT)) == 1
     job = store.claim()
     job['show_sender'] = True
+    job['show_reply_names'] = True
     job['show_forward_time'] = True
     rendered = str(payload_for(job))
     assert rendered.count('李四') == 1 and '发送人：' not in rendered
     assert '转发：' in rendered
+
+
+def test_reply_name_toggle_applies_to_existing_queue_without_changing_quote_or_body(store,tmp_path):
+    task = make_route(store)
+    reply, original = reply_pair(text='正文：继续观望',original_text='原文：现在呢？')
+    original.get_sender.return_value.first_name = '这是一个特别特别长的被引用作者名称'
+    reply.get_sender.return_value.first_name = '这是一个特别特别长的当前发言人名称'
+    assert asyncio.run(service_for(store,tmp_path).ingest(task,reply,CHAT)) == 1
+    store.execute('UPDATE tasks SET show_reply_names=1 WHERE id=?',(task['id'],))
+    job = store.claim()
+    assert payload_for(job)['content']['text'] == '↳ 回复这是一个特别特别长的被引…：原文：现在呢？\n这是一个特别特别长的当前…：正文：继续观望'
+    store.execute("UPDATE deliveries SET status='retry',next_attempt=0")
+    store.execute('UPDATE tasks SET show_reply_names=0,show_sender=1 WHERE id=?',(task['id'],))
+    job = Store(store.path).claim()
+    assert payload_for(job)['content']['text'] == '↳ 回复：原文：现在呢？\n正文：继续观望'
+    # Multi-part replies repeat neither the quote nor names when hidden.
+    job.update(part=2,parts=2)
+    assert payload_for(job)['content']['text'] == '【新消息 · 2/2】正文：继续观望'
+
+
+def test_name_option_does_not_change_regular_messages_or_unavailable_quote():
+    from tests.test_message_display import message
+    job = message(show_reply_names=True)
+    assert payload_for(job)['content']['text'] == '加不加仓呢'
+    job.update(reply_context='↳ 回复：原消息不可读取')
+    assert payload_for(job)['content']['text'] == '↳ 回复：原消息不可读取\n测试成员：加不加仓呢'
+    job['show_reply_names'] = False
+    assert payload_for(job)['content']['text'] == '↳ 回复：原消息不可读取\n加不加仓呢'
 
 
 def test_reply_migration_keeps_old_pending_text_and_voice_jobs(store,tmp_path):
